@@ -201,7 +201,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className={cn("flex-1", pathname === '/kds' ? "overflow-hidden p-0" : "overflow-y-auto p-8")}>
           {children}
         </div>
       </main>

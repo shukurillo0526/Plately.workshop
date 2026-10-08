@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 import { KDSOrder } from '@/stores/kds-store';
 import { useRealtimeOrders } from '@/lib/supabase/hooks/use-realtime-orders';
@@ -204,7 +205,7 @@ export default function KDSPage() {
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-[#0D1117] text-white overflow-hidden">
+    <div className={cn("flex flex-col h-screen bg-[#0D1117] text-white overflow-hidden", isFullscreen && "fixed inset-0 z-50")}>
       {/* KDS Header Toolbar */}
       <header className="h-16 border-b border-[rgba(255,255,255,0.06)] bg-[#161b22] px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
