@@ -75,7 +75,7 @@ export async function POST(request: Request) {
         name: name.trim(),
         slug,
         owner_id: user.id,
-        cuisine_type: cuisine,
+        cuisine_type: Array.isArray(cuisine) ? cuisine : [cuisine || 'Uzbek'],
         phone: phone || null,
         address: address || null,
         description: description || null,

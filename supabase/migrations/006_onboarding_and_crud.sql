@@ -76,7 +76,7 @@ BEGIN
         p_name,
         v_slug,
         v_user_id,
-        p_cuisine,
+        ARRAY[p_cuisine],
         p_phone,
         p_address,
         p_description,
