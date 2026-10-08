@@ -3,16 +3,37 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // TODO: Wire Supabase auth
-    setTimeout(() => setIsLoading(false), 1500);
+    
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    setIsLoading(false);
+    
+    if (error) {
+      toast.error(error.message);
+    } else {
+      router.push('/');
+      router.refresh();
+    }
   };
 
   return (
@@ -28,6 +49,8 @@ export default function LoginPage() {
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#f98b25] focus:ring-1 focus:ring-[rgba(249,139,37,0.3)] transition-all"
                 placeholder="manager@restaurant.com"
                 required
@@ -41,6 +64,8 @@ export default function LoginPage() {
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-lg pl-10 pr-10 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#f98b25] focus:ring-1 focus:ring-[rgba(249,139,37,0.3)] transition-all"
                 placeholder="Enter your password"
                 required

@@ -2,21 +2,52 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Building2, Mail, Lock, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  const [restaurantName, setRestaurantName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
+    
+    const supabase = createClient();
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          restaurant_name: restaurantName,
+        }
+      }
+    });
+    
+    setIsLoading(false);
+    
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Check your email to confirm your account');
+      router.push('/login');
+    }
   };
 
   return (
@@ -32,6 +63,8 @@ export default function SignupPage() {
             </div>
             <input 
               type="text" 
+              value={restaurantName}
+              onChange={(e) => setRestaurantName(e.target.value)}
               className="w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-xl pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-[#f98b25] focus:ring-1 focus:ring-[#f98b25] transition-all"
               placeholder="My Awesome Restaurant"
               required
@@ -48,6 +81,8 @@ export default function SignupPage() {
             </div>
             <input 
               type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-xl pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-[#f98b25] focus:ring-1 focus:ring-[#f98b25] transition-all"
               placeholder="manager@restaurant.com"
               required
@@ -63,7 +98,9 @@ export default function SignupPage() {
               <Lock className="h-5 w-5" />
             </div>
             <input 
-              type="password" 
+              type={showPassword ? "text" : "password"} 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className={cn(
                 "w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-xl pl-10 pr-10 py-2.5 text-white focus:outline-none focus:border-[#f98b25] focus:ring-1 focus:ring-[#f98b25] transition-all",
                 showPassword ? "font-sans" : "font-mono"
@@ -90,7 +127,9 @@ export default function SignupPage() {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <input 
-              type="password" 
+              type={showConfirmPassword ? "text" : "password"} 
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               className={cn(
                 "w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-xl pl-10 pr-10 py-2.5 text-white focus:outline-none focus:border-[#f98b25] focus:ring-1 focus:ring-[#f98b25] transition-all",
                 showConfirmPassword ? "font-sans" : "font-mono"

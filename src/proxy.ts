@@ -8,22 +8,43 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
-const PUBLIC_PATHS = ['/login', '/signup'];
+const PUBLIC_AUTH_PATHS = ['/login', '/signup'];
 
 export async function proxy(request: NextRequest) {
-  // Update the Supabase session (refreshes auth cookies)
-  const response = await updateSession(request);
-
+  const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  // Allow public paths without auth check
-  if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
+  // Allow public restaurant guest storefronts
+  if (pathname.startsWith('/store')) {
     return response;
   }
 
-  // TODO: Check auth status and redirect to /login if not authenticated
-  // This will be fully wired once Supabase credentials are configured.
-  // For now, allow all authenticated routes through.
+  // Allow public auth paths
+  if (PUBLIC_AUTH_PATHS.some(path => pathname.startsWith(path))) {
+    // If already authenticated, redirect away from auth pages
+    if (user) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    return response;
+  }
+
+  // Allow API routes and webhooks
+  if (pathname.startsWith('/api/')) {
+    return response;
+  }
+
+  // Protected routes: redirect to login if not authenticated
+  if (!user) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Check if user needs onboarding (no restaurant_id in claims)
+  const restaurantId = user.app_metadata?.restaurant_id;
+  if (!restaurantId && !pathname.startsWith('/onboarding')) {
+    return NextResponse.redirect(new URL('/onboarding', request.url));
+  }
 
   return response;
 }

@@ -79,10 +79,10 @@ export function createNoorQuote(params: {
  */
 export async function dispatchNoorDelivery(request: DispatchRequest): Promise<DispatchResult> {
   const distanceKm = calculateDistanceKm(
-    request.pickup.location.lat,
-    request.pickup.location.lng,
-    request.dropoff.location.lat,
-    request.dropoff.location.lng
+    request.pickup?.location?.lat,
+    request.pickup?.location?.lng,
+    request.dropoff?.location?.lat,
+    request.dropoff?.location?.lng
   );
   const fee = calculateNoorFee(distanceKm);
 

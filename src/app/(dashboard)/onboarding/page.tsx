@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
-import { Upload, Camera, PenLine, FileSpreadsheet, ChevronRight, ChevronLeft, CheckCircle2 } from "lucide-react";
+import { Upload, Camera, PenLine, FileSpreadsheet, ChevronRight, ChevronLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth-store";
+import { useBranchStore } from "@/stores/branch-store";
+import { createClient } from "@/lib/supabase/client";
 
 const STEPS = [
   { label: "Restaurant Details" },
@@ -22,7 +27,11 @@ const BRAND_COLORS = [
 ];
 
 export default function OnboardingPage() {
+  const router = useRouter();
+  const { user, setUser } = useAuthStore();
+  const { setBranches } = useBranchStore();
   const [currentStep, setCurrentStep] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     cuisine: "Uzbek",
@@ -31,8 +40,74 @@ export default function OnboardingPage() {
     description: "",
     primaryColor: "#f98b25",
     tagline: "",
-    menuSource: ""
+    menuSource: "manual"
   });
+
+  const handleLaunch = async () => {
+    if (!formData.name.trim()) {
+      toast.error("Please enter a restaurant name");
+      setCurrentStep(0);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to set up workshop");
+      }
+
+      // Refresh Supabase session to fetch updated app_metadata / claims
+      const supabase = createClient();
+      await supabase.auth.refreshSession();
+
+      // Update Auth Store
+      if (user) {
+        setUser({
+          ...user,
+          restaurant_id: data.restaurant_id,
+          restaurant_name: data.name,
+          restaurant_slug: data.slug,
+          role: "owner",
+          branch_id: data.branch_id || null,
+        });
+      }
+
+      // Set default active branch
+      if (data.branch_id) {
+        setBranches([
+          {
+            id: data.branch_id,
+            name: "Main Branch",
+            address: formData.address || "",
+            phone: formData.phone || null,
+            timezone: "Asia/Tashkent",
+            is_active: true,
+            accepts_delivery: true,
+            accepts_pickup: true,
+            accepts_dine_in: true,
+            default_prep_time_minutes: 15,
+          },
+        ]);
+      }
+
+      toast.success("Workshop launched successfully! Welcome to Plately.");
+      router.push("/");
+      router.refresh();
+    } catch (err: unknown) {
+      console.error("[Onboarding] Submission error:", err);
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
@@ -308,11 +383,22 @@ export default function OnboardingPage() {
               </button>
             ) : (
               <button
-                onClick={() => console.log("Launch", formData)}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-gradient-to-r from-[#f98b25] to-[#f57400] text-white text-sm font-medium shadow-[0_0_15px_rgba(249,139,37,0.3)] hover:shadow-[0_0_20px_rgba(249,139,37,0.5)] transition-all"
+                type="button"
+                onClick={handleLaunch}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-gradient-to-r from-[#f98b25] to-[#f57400] text-white text-sm font-medium shadow-[0_0_15px_rgba(249,139,37,0.3)] hover:shadow-[0_0_20px_rgba(249,139,37,0.5)] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Launch Workshop
-                <ChevronRight className="w-4 h-4" />
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Launching...
+                  </>
+                ) : (
+                  <>
+                    Launch Workshop
+                    <ChevronRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             )}
           </div>
