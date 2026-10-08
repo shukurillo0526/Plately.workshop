@@ -16,8 +16,10 @@ import {
   Bell,
   ChevronDown,
   Menu,
-  X,
   LogOut,
+  Calendar,
+  Megaphone,
+  X,
 } from 'lucide-react';
 import { OfflineBanner } from '@/components/common/offline-banner';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
@@ -31,8 +33,10 @@ const navItems = [
   { key: 'nav.kds', name: 'KDS', href: '/kds', icon: ChefHat },
   { key: 'nav.menu', name: 'Menu', href: '/menu', icon: UtensilsCrossed },
   { key: 'nav.orders', name: 'Orders', href: '/orders', icon: ShoppingBag },
+  { key: 'nav.reservations', name: 'Reservations', href: '/reservations', icon: Calendar },
   { key: 'nav.dispatch', name: 'Dispatch', href: '/dispatch', icon: Truck },
   { key: 'nav.customers', name: 'Customers', href: '/customers', icon: Users },
+  { key: 'nav.marketing', name: 'Marketing', href: '/marketing', icon: Megaphone },
   { key: 'nav.analytics', name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { key: 'nav.settings', name: 'Settings', href: '/settings', icon: Settings },
 ];
