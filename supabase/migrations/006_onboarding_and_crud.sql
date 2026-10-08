@@ -58,12 +58,13 @@ BEGIN
         'cuisine', p_cuisine
     );
 
-    -- 1. Create restaurant
+    -- 1. Create restaurant (with default Tashkent coordinates)
     INSERT INTO restaurants (
         name,
         slug,
         owner_id,
         cuisine_type,
+        location,
         phone,
         address,
         description,
@@ -77,6 +78,7 @@ BEGIN
         v_slug,
         v_user_id,
         ARRAY[p_cuisine],
+        ST_SetSRID(ST_MakePoint(69.2401, 41.2995), 4326)::geography,
         p_phone,
         p_address,
         p_description,
