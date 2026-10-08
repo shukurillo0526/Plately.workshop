@@ -6,14 +6,14 @@
 DROP POLICY IF EXISTS "Staff can view their restaurant" ON restaurants;
 CREATE POLICY "Staff can view their restaurant" ON restaurants
 FOR SELECT USING (
-    id = (SELECT auth.restaurant_id())
+    id = (SELECT public.restaurant_id())
 );
 
 -- Staff can view menu items
 DROP POLICY IF EXISTS "Staff can view menu items" ON menu_items;
 CREATE POLICY "Staff can view menu items" ON menu_items
 FOR SELECT USING (
-    restaurant_id = (SELECT auth.restaurant_id())
+    restaurant_id = (SELECT public.restaurant_id())
 );
 
 
