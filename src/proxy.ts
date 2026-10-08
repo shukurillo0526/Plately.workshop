@@ -11,7 +11,7 @@ import { updateSession } from '@/lib/supabase/middleware';
 const PUBLIC_AUTH_PATHS = ['/login', '/signup'];
 
 export async function proxy(request: NextRequest) {
-  const { response, user } = await updateSession(request);
+  const { response, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
   // Allow public restaurant guest storefronts
@@ -40,8 +40,33 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Check if user needs onboarding (no restaurant_id in claims)
-  const restaurantId = user.app_metadata?.restaurant_id;
+  // Check if user has an associated restaurant (claims or database fallback)
+  let restaurantId = (user.app_metadata?.restaurant_id || user.user_metadata?.restaurant_id) as string | undefined;
+
+  if (!restaurantId && supabase) {
+    try {
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('restaurant_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (staffData?.restaurant_id) {
+        restaurantId = staffData.restaurant_id;
+      }
+    } catch {
+      // Ignored: fallback to onboarding if lookup fails
+    }
+  }
+
+  // If user already has a restaurant, do not trap them on onboarding
+  if (restaurantId && pathname.startsWith('/onboarding')) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
+  // If user has no restaurant, redirect to onboarding
   if (!restaurantId && !pathname.startsWith('/onboarding')) {
     return NextResponse.redirect(new URL('/onboarding', request.url));
   }

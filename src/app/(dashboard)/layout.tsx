@@ -46,6 +46,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // If on onboarding, render standalone without dashboard sidebar/header
+  if (pathname.startsWith('/onboarding')) {
+    return <div className="min-h-screen bg-[#0D1117] text-white">{children}</div>;
+  }
+
   const { user, hasRole, setUser } = useAuthStore();
   const { getSelectedBranch } = useBranchStore();
   const { t } = useLanguageStore();

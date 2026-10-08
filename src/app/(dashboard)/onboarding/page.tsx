@@ -98,8 +98,7 @@ export default function OnboardingPage() {
       }
 
       toast.success("Workshop launched successfully! Welcome to Plately.");
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     } catch (err: unknown) {
       console.error("[Onboarding] Submission error:", err);
       const msg = err instanceof Error ? err.message : "Something went wrong";

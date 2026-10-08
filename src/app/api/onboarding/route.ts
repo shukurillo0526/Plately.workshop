@@ -49,6 +49,20 @@ export async function POST(request: Request) {
     );
 
     if (!rpcError && rpcData) {
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            restaurant_id: rpcData.restaurant_id,
+            restaurant_name: rpcData.name,
+            restaurant_slug: rpcData.slug,
+            role: 'owner',
+            branch_id: rpcData.branch_id,
+          },
+        });
+      } catch (metaErr) {
+        console.warn('[Onboarding] user_metadata update warning:', metaErr);
+      }
+
       return NextResponse.json({
         success: true,
         restaurant_id: rpcData.restaurant_id,
@@ -128,6 +142,20 @@ export async function POST(request: Request) {
 
     if (staffError) {
       console.warn('[Onboarding] Staff creation warning:', staffError.message);
+    }
+
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          restaurant_id: restaurant.id,
+          restaurant_name: restaurant.name,
+          restaurant_slug: restaurant.slug,
+          role: 'owner',
+          branch_id: branchId,
+        },
+      });
+    } catch (metaErr) {
+      console.warn('[Onboarding] user_metadata fallback update warning:', metaErr);
     }
 
     return NextResponse.json({
