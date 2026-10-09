@@ -47,6 +47,7 @@ import {
   Music,
   Check,
   Cpu,
+  Menu as MenuIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -331,6 +332,8 @@ const GEMINI_MODELS = [
 export default function WebsiteBuilderPage() {
   const { user } = useAuthStore();
   const [device, setDevice] = useState<DeviceMode>("desktop");
+  const isMobile = device === "mobile";
+  const isTablet = device === "tablet";
   const [activeDrawer, setActiveDrawer] = useState<"none" | "blocks" | "inspector" | "theme">("none");
   const [selectedSectionId, setSelectedSectionId] = useState<string>("sec-hero");
   const [isSaving, setIsSaving] = useState(false);
@@ -953,36 +956,60 @@ export default function WebsiteBuilderPage() {
         <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 flex flex-col items-center justify-start bg-gradient-to-b from-[#0a0d14] to-[#040609]">
           {/* Realistic Browser Viewport Mockup */}
           <div
-            className={`transition-all duration-300 shadow-2xl rounded-2xl border border-white/10 bg-[#0d1117] flex flex-col overflow-hidden mb-32 ${
-              device === "desktop"
-                ? "w-full max-w-5xl"
-                : device === "tablet"
-                ? "w-[768px]"
-                : "w-[390px] rounded-[36px] border-4 border-slate-800"
+            className={`transition-all duration-300 shadow-2xl bg-[#0d1117] flex flex-col overflow-hidden mb-36 ${
+              isMobile
+                ? "w-[390px] h-[780px] max-h-[82vh] rounded-[48px] border-[10px] border-slate-900 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95)] ring-1 ring-white/10 relative"
+                : isTablet
+                ? "w-[768px] h-[850px] max-h-[85vh] rounded-[32px] border-[8px] border-slate-900 shadow-2xl ring-1 ring-white/10"
+                : "w-full max-w-5xl rounded-2xl border border-white/10"
             }`}
           >
-            {/* Browser Header Bar */}
-            <div className="h-9 bg-[#161b22] border-b border-white/[0.06] px-4 flex items-center justify-between text-xs text-slate-400 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+            {/* Realistic Header: Smartphone Dynamic Island or Desktop Browser Bar */}
+            {isMobile ? (
+              <div className="bg-[#161b22] border-b border-white/[0.04] shrink-0">
+                <div className="h-9 px-6 flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="font-mono font-bold text-white text-xs">9:41</span>
+                  <div className="w-24 h-4 bg-black rounded-full flex items-center justify-center gap-1.5 shadow-inner">
+                    <span className="w-2 h-2 rounded-full bg-slate-900 border border-white/10" />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-300 text-[10px] font-semibold">
+                    <span>5G</span>
+                    <span className="w-4 h-2 border border-white/40 rounded-sm p-0.5 flex items-center">
+                      <span className="w-full h-full bg-emerald-400 rounded-[1px]" />
+                    </span>
+                  </div>
+                </div>
+                {/* Mobile URL Address Bar */}
+                <div className="px-4 pb-2 pt-0.5 flex items-center justify-center">
+                  <div className="flex items-center gap-1.5 bg-[#0d1117] border border-white/5 px-3 py-1 rounded-full text-[11px] font-mono text-slate-300 w-full justify-center">
+                    <span className="text-emerald-400 text-[10px]">🔒</span>
+                    <span className="truncate">{restaurantSlug}.plately.uz</span>
+                  </div>
+                </div>
               </div>
+            ) : (
+              <div className="h-9 bg-[#161b22] border-b border-white/[0.06] px-4 flex items-center justify-between text-xs text-slate-400 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                </div>
 
-              {/* URL Address Bar */}
-              <div className="flex items-center gap-1.5 bg-[#0d1117] border border-white/5 px-3 py-1 rounded-md text-[11px] font-mono text-slate-300">
-                <span className="text-emerald-400">🔒</span>
-                <span>https://{restaurantSlug}.plately.uz</span>
-              </div>
+                {/* URL Address Bar */}
+                <div className="flex items-center gap-1.5 bg-[#0d1117] border border-white/5 px-3 py-1 rounded-md text-[11px] font-mono text-slate-300">
+                  <span className="text-emerald-400">🔒</span>
+                  <span>https://{restaurantSlug}.plately.uz</span>
+                </div>
 
-              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">
-                {device.toUpperCase()}
+                <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">
+                  {device.toUpperCase()}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* LIVE PREVIEW CANVAS CONTENT */}
             <div
-              className="flex-1 overflow-y-auto text-slate-100"
+              className="flex-1 overflow-y-auto text-slate-100 scrollbar-thin"
               style={{
                 backgroundColor: config.backgroundColor || "#0d1117",
                 fontFamily: config.fontFamily === "Playfair Display" ? "var(--font-serif, serif)" : "var(--font-sans, sans-serif)",
@@ -991,16 +1018,18 @@ export default function WebsiteBuilderPage() {
               {/* TOP ANNOUNCEMENT BAR */}
               {config.sections.find((s) => s.type === "announcement" && s.enabled) && (
                 <div
-                  className="py-2 px-4 text-center text-xs font-medium border-b border-white/10 flex items-center justify-center gap-2 relative group"
+                  className={`text-center font-medium border-b border-white/10 flex items-center justify-center gap-2 relative group ${
+                    isMobile ? "py-1.5 px-3 text-[11px]" : "py-2 px-4 text-xs"
+                  }`}
                   style={{ backgroundColor: `${config.primaryColor}20`, color: config.primaryColor }}
                 >
-                  <span>{config.deliveryNotice}</span>
+                  <span className="truncate">{config.deliveryNotice}</span>
                   <button
                     onClick={() => {
                       setSelectedSectionId("sec-announcement");
                       setActiveDrawer("inspector");
                     }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-[10px] underline"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-[10px] underline shrink-0"
                   >
                     Edit
                   </button>
@@ -1008,34 +1037,53 @@ export default function WebsiteBuilderPage() {
               )}
 
               {/* STOREFRONT HEADER NAV */}
-              <nav className="border-b border-white/[0.08] px-6 py-4 flex items-center justify-between sticky top-0 bg-[#0d1117]/90 backdrop-blur-md z-10">
-                <div className="flex items-center gap-3">
+              <nav
+                className={`border-b border-white/[0.08] flex items-center justify-between sticky top-0 bg-[#0d1117]/90 backdrop-blur-md z-10 ${
+                  isMobile ? "px-4 py-3" : "px-6 py-4"
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shadow-lg"
+                    className={`rounded-xl flex items-center justify-center font-bold text-white shadow-lg shrink-0 ${
+                      isMobile ? "w-8 h-8 text-xs" : "w-9 h-9 text-sm"
+                    }`}
                     style={{ backgroundColor: config.primaryColor }}
                   >
                     {restaurantName.charAt(0)}
                   </div>
-                  <div>
-                    <h2 className="font-bold text-sm text-white tracking-tight">{restaurantName}</h2>
-                    <p className="text-[10px] text-slate-400">Authentic Cuisine • Tashkent</p>
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-xs sm:text-sm text-white tracking-tight truncate">
+                      {restaurantName}
+                    </h2>
+                    <p className="text-[9px] text-slate-400 truncate">Authentic Cuisine • Tashkent</p>
                   </div>
                 </div>
 
-                <div className="hidden md:flex items-center gap-6 text-xs text-slate-300 font-medium">
-                  <span className="hover:text-white cursor-pointer">Menu</span>
-                  <span className="hover:text-white cursor-pointer">Our Story</span>
-                  <span className="hover:text-white cursor-pointer">Table Booking</span>
-                  <span className="hover:text-white cursor-pointer">Reviews</span>
-                </div>
+                {/* Desktop Nav Links (Hidden on Mobile) */}
+                {!isMobile && (
+                  <div className="flex items-center gap-6 text-xs text-slate-300 font-medium">
+                    <span className="hover:text-white cursor-pointer">Menu</span>
+                    <span className="hover:text-white cursor-pointer">Our Story</span>
+                    <span className="hover:text-white cursor-pointer">Table Booking</span>
+                    <span className="hover:text-white cursor-pointer">Reviews</span>
+                  </div>
+                )}
 
-                <div className="flex items-center gap-2">
+                {/* Right Action / Mobile Hamburger */}
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition-transform hover:scale-105"
+                    className={`rounded-lg font-semibold text-white shadow-md transition-transform hover:scale-105 shrink-0 ${
+                      isMobile ? "px-2.5 py-1 text-[11px]" : "px-3.5 py-1.5 text-xs"
+                    }`}
                     style={{ backgroundColor: config.primaryColor }}
                   >
-                    {config.heroButtonText}
+                    {config.heroButtonText || "Order"}
                   </button>
+                  {isMobile && (
+                    <button className="p-1 rounded-lg bg-white/5 border border-white/10 text-slate-300">
+                      <MenuIcon className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </nav>
 
@@ -1050,14 +1098,16 @@ export default function WebsiteBuilderPage() {
                         setSelectedSectionId(section.id);
                         setActiveDrawer("inspector");
                       }}
-                      className={`relative group p-6 md:p-10 transition-all cursor-pointer ${
+                      className={`relative group transition-all cursor-pointer ${
+                        isMobile ? "p-4" : "p-6 md:p-10"
+                      } ${
                         selectedSectionId === section.id
                           ? "ring-2 ring-inset ring-[#f98b25] bg-[#f98b25]/[0.02]"
                           : "hover:bg-white/[0.01]"
                       }`}
                     >
                       {/* Section Hover Mini Toolbar */}
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all bg-[#161b22] border border-white/10 rounded-lg p-1 flex items-center gap-1 shadow-xl z-20">
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all bg-[#161b22] border border-white/10 rounded-lg p-1 flex items-center gap-1 shadow-xl z-20">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1117,15 +1167,17 @@ export default function WebsiteBuilderPage() {
                       {section.type === "hero" && (
                         <div
                           className={`flex flex-col ${
-                            config.heroLayout === "split"
+                            isMobile
+                              ? "items-center text-center gap-4"
+                              : config.heroLayout === "split"
                               ? "md:flex-row md:items-center gap-8"
-                              : "items-center text-center max-w-2xl mx-auto"
+                              : "items-center text-center max-w-2xl mx-auto gap-4"
                           }`}
                         >
-                          <div className="flex-1 space-y-4">
+                          <div className={`space-y-3 ${isMobile ? "w-full" : "flex-1"}`}>
                             {section.meta?.badge && (
                               <div
-                                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase"
+                                className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase"
                                 style={{
                                   backgroundColor: `${config.primaryColor}20`,
                                   color: config.primaryColor,
@@ -1135,31 +1187,51 @@ export default function WebsiteBuilderPage() {
                               </div>
                             )}
 
-                            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                            <h1
+                              className={`font-extrabold tracking-tight text-white leading-tight ${
+                                isMobile ? "text-2xl" : "text-3xl md:text-5xl"
+                              }`}
+                            >
                               {config.heroHeadline}
                             </h1>
 
-                            <p className="text-sm md:text-base text-slate-300 leading-relaxed">
+                            <p
+                              className={`text-slate-300 leading-relaxed ${
+                                isMobile ? "text-xs max-w-xs mx-auto" : "text-sm md:text-base"
+                              }`}
+                            >
                               {config.heroTagline}
                             </p>
 
-                            <div className="pt-2 flex flex-wrap gap-3">
+                            <div
+                              className={`pt-2 flex gap-2 ${
+                                isMobile ? "flex-col w-full" : "flex-wrap"
+                              }`}
+                            >
                               <button
-                                className="px-6 py-3 rounded-xl font-bold text-sm text-white shadow-xl transition-transform hover:scale-105"
+                                className={`rounded-xl font-bold text-white shadow-xl transition-transform hover:scale-105 ${
+                                  isMobile ? "w-full py-2.5 text-xs" : "px-6 py-3 text-sm"
+                                }`}
                                 style={{ backgroundColor: config.primaryColor }}
                               >
                                 {config.heroButtonText}
                               </button>
-                              <button className="px-5 py-3 rounded-xl font-semibold text-sm bg-white/10 hover:bg-white/15 text-white border border-white/10 transition-colors">
+                              <button
+                                className={`rounded-xl font-semibold bg-white/10 hover:bg-white/15 text-white border border-white/10 transition-colors ${
+                                  isMobile ? "w-full py-2 text-xs" : "px-5 py-3 text-sm"
+                                }`}
+                              >
                                 Explore Full Menu
                               </button>
                             </div>
                           </div>
 
-                          {config.heroLayout === "split" && (
-                            <div className="flex-1 relative">
+                          {(config.heroLayout === "split" || isMobile) && (
+                            <div className={`relative ${isMobile ? "w-full mt-2" : "flex-1"}`}>
                               <div
-                                className="w-full h-64 md:h-80 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-cover bg-center"
+                                className={`w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-cover bg-center ${
+                                  isMobile ? "h-48" : "h-64 md:h-80"
+                                }`}
                                 style={{
                                   backgroundImage: `url(${config.heroImage || section.meta?.imageUrl})`,
                                 }}
@@ -1171,34 +1243,48 @@ export default function WebsiteBuilderPage() {
 
                       {/* SECTION 2: ABOUT & HERITAGE */}
                       {section.type === "about" && (
-                        <div className="flex flex-col md:flex-row items-center gap-8">
-                          <div className="flex-1 relative">
+                        <div
+                          className={`flex flex-col items-center gap-6 ${
+                            isMobile ? "" : "md:flex-row gap-8"
+                          }`}
+                        >
+                          <div className={`relative ${isMobile ? "w-full" : "flex-1"}`}>
                             <div
-                              className="w-full h-64 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-cover bg-center"
+                              className={`w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-cover bg-center ${
+                                isMobile ? "h-44" : "h-64"
+                              }`}
                               style={{
                                 backgroundImage: `url(${config.aboutImage || section.meta?.imageUrl})`,
                               }}
                             />
                             <div
-                              className="absolute -bottom-4 -right-4 px-4 py-2 rounded-xl text-xs font-bold shadow-xl border border-white/10 text-white"
+                              className="absolute -bottom-3 -right-3 px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-xl border border-white/10 text-white"
                               style={{ backgroundColor: config.primaryColor }}
                             >
                               {section.meta?.badge || "Est. 1998"}
                             </div>
                           </div>
 
-                          <div className="flex-1 space-y-3">
+                          <div className={`space-y-2.5 ${isMobile ? "w-full text-center" : "flex-1"}`}>
                             <span
-                              className="text-xs font-bold uppercase tracking-widest"
+                              className="text-[10px] font-bold uppercase tracking-widest"
                               style={{ color: config.primaryColor }}
                             >
                               {section.subtitle || "OUR HERITAGE"}
                             </span>
-                            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                            <h2
+                              className={`font-bold text-white tracking-tight ${
+                                isMobile ? "text-xl" : "text-2xl md:text-3xl"
+                              }`}
+                            >
                               {section.title}
                             </h2>
-                            <p className="text-sm text-slate-300 leading-relaxed">{config.aboutStory}</p>
-                            <div className="pt-2 flex items-center gap-4 text-xs text-slate-400 font-medium">
+                            <p className="text-xs text-slate-300 leading-relaxed">{config.aboutStory}</p>
+                            <div
+                              className={`pt-1 flex flex-wrap gap-2 text-[10px] text-slate-400 font-medium ${
+                                isMobile ? "justify-center" : "items-center gap-4"
+                              }`}
+                            >
                               <span>✓ Halal Certified Meat</span>
                               <span>✓ Clay Oven Bread Daily</span>
                               <span>✓ Organic Spices</span>
@@ -1209,21 +1295,29 @@ export default function WebsiteBuilderPage() {
 
                       {/* SECTION 3: SIGNATURE DISHES */}
                       {section.type === "highlights" && (
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                           <div className="text-center max-w-xl mx-auto space-y-1">
                             <span
-                              className="text-xs font-bold uppercase tracking-widest"
+                              className="text-[10px] font-bold uppercase tracking-widest"
                               style={{ color: config.primaryColor }}
                             >
                               {section.subtitle || "CHEF SPECIALS"}
                             </span>
-                            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                            <h2
+                              className={`font-bold text-white tracking-tight ${
+                                isMobile ? "text-xl" : "text-2xl md:text-3xl"
+                              }`}
+                            >
                               {section.title}
                             </h2>
-                            <p className="text-xs text-slate-400">{section.content}</p>
+                            <p className="text-[11px] text-slate-400">{section.content}</p>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div
+                            className={`grid gap-3.5 ${
+                              isMobile ? "grid-cols-1" : "grid-cols-1 md:grid-cols-3"
+                            }`}
+                          >
                             {(section.meta?.items || []).map((dish, i) => (
                               <div
                                 key={i}
@@ -1231,17 +1325,17 @@ export default function WebsiteBuilderPage() {
                               >
                                 {dish.image && (
                                   <div
-                                    className="h-36 bg-cover bg-center"
+                                    className={`bg-cover bg-center ${isMobile ? "h-40" : "h-36"}`}
                                     style={{ backgroundImage: `url(${dish.image})` }}
                                   />
                                 )}
-                                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                                <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
                                   <div>
                                     <div className="flex items-center justify-between">
-                                      <h3 className="font-bold text-sm text-white">{dish.title}</h3>
+                                      <h3 className="font-bold text-xs sm:text-sm text-white">{dish.title}</h3>
                                       {dish.tag && (
                                         <span
-                                          className="text-[10px] px-2 py-0.5 rounded font-bold uppercase"
+                                          className="text-[9px] px-2 py-0.5 rounded font-bold uppercase"
                                           style={{
                                             backgroundColor: `${config.primaryColor}20`,
                                             color: config.primaryColor,
@@ -1251,14 +1345,14 @@ export default function WebsiteBuilderPage() {
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-xs text-slate-400 mt-1 line-clamp-2">{dish.desc}</p>
+                                    <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{dish.desc}</p>
                                   </div>
                                   <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                                    <span className="font-bold text-sm text-white">
+                                    <span className="font-bold text-xs sm:text-sm text-white">
                                       {dish.price ? formatUZS(dish.price) : "38,000 UZS"}
                                     </span>
                                     <button
-                                      className="px-3 py-1 rounded text-xs font-semibold text-white"
+                                      className="px-2.5 py-1 rounded text-[11px] font-semibold text-white"
                                       style={{ backgroundColor: config.primaryColor }}
                                     >
                                       + Add
@@ -1273,50 +1367,64 @@ export default function WebsiteBuilderPage() {
 
                       {/* SECTION 4: TABLE RESERVATION */}
                       {section.type === "booking" && (
-                        <div className="max-w-2xl mx-auto rounded-2xl border border-white/10 p-6 md:p-8 bg-[#141a24]/80 backdrop-blur-md shadow-2xl space-y-6">
+                        <div
+                          className={`max-w-2xl mx-auto rounded-2xl border border-white/10 bg-[#141a24]/80 backdrop-blur-md shadow-2xl space-y-4 ${
+                            isMobile ? "p-4" : "p-6 md:p-8 space-y-6"
+                          }`}
+                        >
                           <div className="text-center space-y-1">
                             <span
-                              className="text-xs font-bold uppercase tracking-widest"
+                              className="text-[10px] font-bold uppercase tracking-widest"
                               style={{ color: config.primaryColor }}
                             >
                               {section.subtitle || "RESERVE YOUR TABLE"}
                             </span>
-                            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                            <h2
+                              className={`font-bold text-white tracking-tight ${
+                                isMobile ? "text-xl" : "text-2xl md:text-3xl"
+                              }`}
+                            >
                               {section.title}
                             </h2>
-                            <p className="text-xs text-slate-400">{section.content}</p>
+                            <p className="text-[11px] text-slate-400">{section.content}</p>
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                          <div
+                            className={`gap-2.5 text-xs ${
+                              isMobile ? "flex flex-col" : "grid grid-cols-2 md:grid-cols-3"
+                            }`}
+                          >
                             <div>
-                              <label className="text-slate-400 block mb-1">Guests</label>
-                              <select className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white">
-                                <option>2 Guests (Romantic / Intimate)</option>
-                                <option>4 Guests (Family Table)</option>
+                              <label className="text-slate-400 block mb-1 text-[11px]">Guests</label>
+                              <select className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white text-xs">
+                                <option>2 Guests (Romantic)</option>
+                                <option>4 Guests (Family)</option>
                                 <option>6-8 Guests (Celebration)</option>
-                                <option>10+ Guests (Private VIP Room)</option>
+                                <option>10+ Guests (Private Room)</option>
                               </select>
                             </div>
                             <div>
-                              <label className="text-slate-400 block mb-1">Date</label>
+                              <label className="text-slate-400 block mb-1 text-[11px]">Date</label>
                               <input
                                 type="date"
                                 defaultValue={new Date().toISOString().split("T")[0]}
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white text-xs"
                               />
                             </div>
-                            <div className="col-span-2 md:col-span-1">
-                              <label className="text-slate-400 block mb-1">Time Slot</label>
-                              <select className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white">
-                                <option>13:00 - Lunch Rush</option>
-                                <option>18:30 - Early Dinner</option>
-                                <option>20:00 - Prime Evening</option>
+                            <div className={isMobile ? "" : "col-span-2 md:col-span-1"}>
+                              <label className="text-slate-400 block mb-1 text-[11px]">Time Slot</label>
+                              <select className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white text-xs">
+                                <option>13:00 - Lunch</option>
+                                <option>18:30 - Dinner</option>
+                                <option>20:00 - Evening</option>
                               </select>
                             </div>
                           </div>
 
                           <button
-                            className="w-full py-3 rounded-xl font-bold text-sm text-white shadow-xl transition-transform hover:scale-[1.01]"
+                            className={`w-full rounded-xl font-bold text-white shadow-xl transition-transform hover:scale-[1.01] ${
+                              isMobile ? "py-2.5 text-xs" : "py-3 text-sm"
+                            }`}
                             style={{ backgroundColor: config.primaryColor }}
                           >
                             {section.meta?.buttonText || "Confirm Table Reservation"}
@@ -1326,35 +1434,43 @@ export default function WebsiteBuilderPage() {
 
                       {/* SECTION 5: CUSTOMER REVIEWS */}
                       {section.type === "reviews" && (
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                           <div className="text-center max-w-xl mx-auto space-y-1">
                             <span
-                              className="text-xs font-bold uppercase tracking-widest"
+                              className="text-[10px] font-bold uppercase tracking-widest"
                               style={{ color: config.primaryColor }}
                             >
                               {section.subtitle || "GUEST EXPERIENCES"}
                             </span>
-                            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                            <h2
+                              className={`font-bold text-white tracking-tight ${
+                                isMobile ? "text-xl" : "text-2xl md:text-3xl"
+                              }`}
+                            >
                               {section.title}
                             </h2>
-                            <p className="text-xs text-slate-400">{section.content}</p>
+                            <p className="text-[11px] text-slate-400">{section.content}</p>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div
+                            className={`grid gap-3 ${
+                              isMobile ? "grid-cols-1" : "grid-cols-1 md:grid-cols-3 gap-4"
+                            }`}
+                          >
                             {(section.meta?.items || []).map((rev, i) => (
                               <div
                                 key={i}
-                                className="rounded-xl border border-white/10 p-5 bg-slate-900/50 flex flex-col justify-between space-y-4"
+                                className="rounded-xl border border-white/10 p-4 bg-slate-900/50 flex flex-col justify-between space-y-3"
                               >
                                 <div className="flex items-center gap-1 text-amber-400">
                                   {[...Array(5)].map((_, starI) => (
-                                    <Star key={starI} className="w-4 h-4 fill-amber-400" />
+                                    <Star key={starI} className="w-3.5 h-3.5 fill-amber-400" />
                                   ))}
                                 </div>
-                                <p className="text-xs text-slate-300 italic leading-relaxed">
+                                <p className="text-[11px] text-slate-300 italic leading-relaxed">
                                   "{rev.desc}"
                                 </p>
-                                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
+                                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px]">
                                   <span className="font-bold text-white">{rev.title}</span>
                                   <span className="text-[10px] text-emerald-400 font-semibold">{rev.tag}</span>
                                 </div>
@@ -1366,50 +1482,72 @@ export default function WebsiteBuilderPage() {
 
                       {/* SECTION 6: HOURS & LOCATION */}
                       {section.type === "hours_location" && (
-                        <div className="rounded-2xl border border-white/10 p-6 md:p-8 bg-slate-900/40 flex flex-col md:flex-row items-center justify-between gap-6">
-                          <div className="space-y-2">
+                        <div
+                          className={`rounded-2xl border border-white/10 bg-slate-900/40 flex flex-col items-start gap-4 ${
+                            isMobile ? "p-4" : "md:flex-row md:items-center justify-between p-6 md:p-8 gap-6"
+                          }`}
+                        >
+                          <div className="space-y-1.5 w-full">
                             <span
-                              className="text-xs font-bold uppercase tracking-widest"
+                              className="text-[10px] font-bold uppercase tracking-widest"
                               style={{ color: config.primaryColor }}
                             >
                               {section.subtitle || "FIND US"}
                             </span>
-                            <h2 className="text-2xl font-bold text-white">{section.title}</h2>
-                            <p className="text-xs text-slate-400">{section.content}</p>
-                            <div className="flex items-center gap-4 text-xs text-slate-300 pt-2">
+                            <h2
+                              className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}
+                            >
+                              {section.title}
+                            </h2>
+                            <p className="text-[11px] text-slate-400">{section.content}</p>
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-300 pt-1">
                               <span className="flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5 text-amber-400" /> 10:00 - 23:00 Daily
+                                <Clock className="w-3 h-3 text-amber-400" /> 10:00 - 23:00 Daily
                               </span>
                               <span className="flex items-center gap-1">
-                                <Phone className="w-3.5 h-3.5 text-emerald-400" /> +998 71 200 00 00
+                                <Phone className="w-3 h-3 text-emerald-400" /> +998 71 200 00 00
                               </span>
                             </div>
                           </div>
 
-                          <button className="px-6 py-3 rounded-xl font-bold text-xs text-white border border-white/10 bg-white/5 hover:bg-white/10 transition-colors">
-                            Open in Yandex & Google Maps
+                          <button
+                            className={`rounded-xl font-bold text-xs text-white border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${
+                              isMobile ? "w-full py-2.5 text-center" : "px-6 py-3"
+                            }`}
+                          >
+                            Open in Maps
                           </button>
                         </div>
                       )}
 
                       {/* SECTION 7: PHOTO GALLERY */}
                       {section.type === "gallery" && (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           <div className="text-center max-w-xl mx-auto space-y-1">
                             <span
-                              className="text-xs font-bold uppercase tracking-widest"
+                              className="text-[10px] font-bold uppercase tracking-widest"
                               style={{ color: config.primaryColor }}
                             >
                               {section.subtitle || "GALLERY"}
                             </span>
-                            <h2 className="text-2xl font-bold text-white">{section.title}</h2>
+                            <h2
+                              className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}
+                            >
+                              {section.title}
+                            </h2>
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div
+                            className={`grid gap-2 ${
+                              isMobile ? "grid-cols-2" : "grid-cols-2 md:grid-cols-4 gap-3"
+                            }`}
+                          >
                             {PHOTO_PRESETS.slice(0, 4).map((img, i) => (
                               <div
                                 key={i}
-                                className="h-36 rounded-xl bg-cover bg-center border border-white/10 overflow-hidden hover:scale-[1.02] transition-transform"
+                                className={`rounded-xl bg-cover bg-center border border-white/10 overflow-hidden hover:scale-[1.02] transition-transform ${
+                                  isMobile ? "h-28" : "h-36"
+                                }`}
                                 style={{ backgroundImage: `url(${img.url})` }}
                               />
                             ))}
@@ -1419,15 +1557,19 @@ export default function WebsiteBuilderPage() {
 
                       {/* SECTION 8: FAQ */}
                       {section.type === "faq" && (
-                        <div className="max-w-2xl mx-auto space-y-4">
+                        <div className="max-w-2xl mx-auto space-y-3">
                           <div className="text-center space-y-1">
                             <span
-                              className="text-xs font-bold uppercase tracking-widest"
+                              className="text-[10px] font-bold uppercase tracking-widest"
                               style={{ color: config.primaryColor }}
                             >
                               {section.subtitle || "FAQ"}
                             </span>
-                            <h2 className="text-2xl font-bold text-white">{section.title}</h2>
+                            <h2
+                              className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}
+                            >
+                              {section.title}
+                            </h2>
                           </div>
 
                           <div className="space-y-2 text-xs">
@@ -1446,14 +1588,26 @@ export default function WebsiteBuilderPage() {
                       {/* SECTION 9: CTA BANNER */}
                       {section.type === "cta" && (
                         <div
-                          className="rounded-2xl p-8 text-center space-y-4 text-white shadow-2xl relative overflow-hidden"
+                          className={`rounded-2xl text-center space-y-3 text-white shadow-2xl relative overflow-hidden ${
+                            isMobile ? "p-5" : "p-8 space-y-4"
+                          }`}
                           style={{
                             background: `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor || "#e11d48"})`,
                           }}
                         >
-                          <h2 className="text-3xl font-extrabold">{section.title}</h2>
-                          <p className="text-sm opacity-90 max-w-lg mx-auto">{section.content}</p>
-                          <button className="px-8 py-3 rounded-xl font-bold text-sm bg-black text-white hover:bg-slate-900 shadow-xl transition-transform hover:scale-105">
+                          <h2
+                            className={`font-extrabold ${isMobile ? "text-xl" : "text-3xl"}`}
+                          >
+                            {section.title}
+                          </h2>
+                          <p className={`opacity-90 max-w-lg mx-auto ${isMobile ? "text-xs" : "text-sm"}`}>
+                            {section.content}
+                          </p>
+                          <button
+                            className={`rounded-xl font-bold bg-black text-white hover:bg-slate-900 shadow-xl transition-transform hover:scale-105 ${
+                              isMobile ? "w-full py-2.5 text-xs" : "px-8 py-3 text-sm"
+                            }`}
+                          >
                             {section.meta?.buttonText || "Order Online Now"}
                           </button>
                         </div>
@@ -1463,11 +1617,18 @@ export default function WebsiteBuilderPage() {
               </div>
 
               {/* FOOTER */}
-              <footer className="border-t border-white/[0.08] p-8 text-center text-xs text-slate-500 space-y-2">
+              <footer className="border-t border-white/[0.08] p-6 text-center text-xs text-slate-500 space-y-1.5">
                 <p className="text-slate-400 font-semibold">{restaurantName} • Official Digital Storefront</p>
                 <p>© {new Date().getFullYear()} All Rights Reserved • Powered by Plately Workshop</p>
               </footer>
             </div>
+
+            {/* Mobile Bottom Home Bar */}
+            {isMobile && (
+              <div className="h-6 bg-[#161b22] flex items-center justify-center shrink-0 border-t border-white/[0.04]">
+                <div className="w-32 h-1 bg-white/20 rounded-full" />
+              </div>
+            )}
           </div>
         </div>
 

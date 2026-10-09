@@ -135,11 +135,13 @@ INSTRUCTIONS:
    - "primaryColor": select an alluring hex color matching the cuisine/vibe (e.g. #f98b25 Saffron, #10b981 Emerald, #d4af37 Gold, #e11d48 Crimson, #d97706 Coffee, #3b82f6 Blue).
    - "backgroundColor": pick a harmonious dark background (e.g. #0d1117, #0b0d11, #061510, #14100c, #090d16) or light if requested.
    - "fontFamily": "Outfit" (modern/warm), "Playfair Display" (luxury serif), or "Inter" (clean minimalist).
-   - "heroLayout": "split" (headline with food photo on right), "centered", or "minimal".
-   - "heroHeadline", "heroTagline", "aboutStory": write creative, appetizing copywriting tailored specifically to the cuisine.
+   - "heroLayout": "split" (headline with food photo on right), "centered", or "minimal". (If user mentions mobile layout or clean focus, prefer "centered").
+   - "heroHeadline", "heroTagline", "aboutStory": write creative, appetizing copywriting tailored specifically to the cuisine. Keep headlines punchy, elegant, and mobile-friendly.
    - "heroButtonText": "Order Online Now", "Reserve a Table", "Explore Menu", etc.
    - "heroButtonLink": "#menu" or "#booking".
-5. Section Management:
+5. Mobile & Viewport Optimization:
+   - If the user asks about "mobile", "fit", "screen", "responsive", or layout polish, optimize the typography, set "heroLayout" to "centered", refine copywriting to be punchy and readable without overflowing, and ensure smooth conversion flow.
+6. Section Management:
    - Ensure the "sections" array contains all relevant sections with "enabled": true when requested:
      - "announcement": top delivery/promo banner
      - "hero": main banner
