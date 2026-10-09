@@ -24,8 +24,8 @@ export interface WebsiteThemeConfig {
   primaryColor: string;
   secondaryColor?: string;
   backgroundColor?: string;
-  textColor?: string;
   cardColor?: string;
+  textColor?: string;
   fontFamily: "Outfit" | "Inter" | "Playfair Display";
   heroTagline: string;
   heroHeadline: string;
@@ -39,103 +39,198 @@ export interface WebsiteThemeConfig {
   sections: WebsiteSection[];
 }
 
+export interface AttachedMedia {
+  name: string;
+  type: string;
+  dataUrl: string; // base64 data URL
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { command, currentConfig, restaurantName = "Our Restaurant" } = body;
+    const {
+      command,
+      currentConfig,
+      restaurantName = "Our Restaurant",
+      model = "gemini-2.5-flash",
+      attachments = [] as AttachedMedia[],
+    } = body;
 
-    if (!command || typeof command !== "string") {
+    if ((!command || typeof command !== "string") && (!attachments || attachments.length === 0)) {
       return NextResponse.json(
-        { error: "Natural language command is required" },
+        { error: "A text command or attachment is required" },
         { status: 400 }
       );
     }
 
-    const p = command.toLowerCase().trim();
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    // 1. If Gemini API Key is available, use real Gemini Multimodal API
+    if (apiKey) {
+      try {
+        const parts: any[] = [];
+
+        // Add attachments as inlineData parts
+        for (const file of attachments) {
+          if (file.dataUrl && file.dataUrl.includes(",")) {
+            const [header, base64Data] = file.dataUrl.split(",");
+            const mimeType = file.type || header.split(";")[0].replace("data:", "") || "image/jpeg";
+            parts.push({
+              inlineData: {
+                mimeType,
+                data: base64Data,
+              },
+            });
+          }
+        }
+
+        // System & User prompt
+        const promptInstruction = `
+You are the **Plately AI Website Architect & Senior UX Designer**.
+The user wants to customize their restaurant digital presence.
+
+RESTAURANT NAME: "${restaurantName}"
+USER NATURAL LANGUAGE INSTRUCTION: "${command || "Design a stunning website matching the attached image/file"}"
+
+CURRENT WEBSITE CONFIGURATION:
+${JSON.stringify(currentConfig, null, 2)}
+
+INSTRUCTIONS:
+1. Carefully analyze the user prompt and any attached photos, logos, or media.
+2. Return an updated, high-converting, aesthetically cohesive website configuration conforming strictly to the JSON schema below.
+3. If the user describes a cuisine, luxury tier, festive occasion, or layout change:
+   - Select harmonious hex colors: primaryColor, secondaryColor, backgroundColor, cardColor.
+   - Choose the best typography pairing: "Outfit" (modern & warm), "Playfair Display" (luxury & classical), or "Inter" (clean & minimalist).
+   - Write creative, appetizing copywriting for heroHeadline, heroTagline, and aboutStory tailored specifically to the cuisine.
+   - Update, add, or enable relevant sections:
+     - "announcement" (for promos, holiday hours, discounts)
+     - "hero" (set heroLayout to "split", "centered", or "minimal")
+     - "about" (heritage, passion, craft)
+     - "highlights" (signature dishes)
+     - "booking" (table reservation)
+     - "reviews" (guest testimonials)
+     - "hours_location" (branches & hours)
+     - "gallery" (photo showcase)
+     - "faq" (frequently asked questions)
+     - "cta" (conversion banner)
+4. If an image is attached and represents a dish or atmosphere, you can retain or specify high quality culinary imagery.
+5. Provide a list of "changes" summarizing your key decisions, and a concise "message" for the user.
+
+REQUIRED JSON FORMAT:
+{
+  "primaryColor": "#...",
+  "secondaryColor": "#...",
+  "backgroundColor": "#...",
+  "cardColor": "#...",
+  "fontFamily": "Outfit" | "Inter" | "Playfair Display",
+  "heroHeadline": "...",
+  "heroTagline": "...",
+  "heroButtonText": "...",
+  "heroButtonLink": "#menu" | "#booking",
+  "heroLayout": "split" | "centered" | "minimal",
+  "heroImage": "https://...",
+  "aboutStory": "...",
+  "aboutImage": "https://...",
+  "deliveryNotice": "...",
+  "sections": [
+    { "id": "...", "type": "...", "title": "...", "subtitle": "...", "content": "...", "enabled": true }
+  ],
+  "changes": ["...", "..."],
+  "message": "..."
+}
+`;
+
+        parts.push({ text: promptInstruction });
+
+        // Call Gemini generateContent
+        const selectedModel = model || "gemini-2.5-flash";
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+
+        const res = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.7,
+            },
+          }),
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (rawText) {
+            const parsed = JSON.parse(rawText);
+
+            // Merge safely with currentConfig defaults
+            const updatedConfig: WebsiteThemeConfig = {
+              ...currentConfig,
+              ...parsed,
+              heroLayout: parsed.heroLayout === "split" || parsed.heroLayout === "centered" || parsed.heroLayout === "minimal"
+                ? parsed.heroLayout
+                : "split",
+              sections: Array.isArray(parsed.sections) && parsed.sections.length > 0
+                ? parsed.sections
+                : currentConfig.sections,
+            };
+
+            return NextResponse.json({
+              success: true,
+              modelUsed: selectedModel,
+              message: parsed.message || (parsed.changes ? parsed.changes.join(" • ") : "Design refreshed with Gemini AI"),
+              changes: parsed.changes || ["Updated styling and layout with Gemini AI"],
+              config: updatedConfig,
+            });
+          }
+        } else {
+          const errData = await res.json();
+          console.warn("[Gemini API] Request returned error:", errData);
+        }
+      } catch (geminiError: any) {
+        console.warn("[Gemini API] Exception, falling back to local engine:", geminiError);
+      }
+    }
+
+    // 2. Intelligent Local Fallback Engine (Runs if offline or quota exceeded)
+    const p = (command || "").toLowerCase().trim();
     const nextConfig: WebsiteThemeConfig = JSON.parse(JSON.stringify(currentConfig));
     const changes: string[] = [];
 
-    // 1. Color and Theme Archetypes
-    if (p.includes("luxury") || p.includes("steak") || p.includes("fine dining") || p.includes("exclusive") || p.includes("gold") || p.includes("obsidian")) {
-      nextConfig.primaryColor = "#d4af37"; // Elegant Gold
-      nextConfig.secondaryColor = "#10b981";
+    if (p.includes("luxury") || p.includes("steak") || p.includes("gold") || p.includes("obsidian")) {
+      nextConfig.primaryColor = "#d4af37";
+      nextConfig.secondaryColor = "#f59e0b";
       nextConfig.backgroundColor = "#0b0d11";
-      nextConfig.cardColor = "#13171f";
+      nextConfig.cardColor = "#141720";
       nextConfig.fontFamily = "Playfair Display";
       nextConfig.heroLayout = "split";
       changes.push("Applied Luxury Fine Dining theme with Royal Gold & Obsidian palette");
-    } else if (p.includes("emerald") || p.includes("green") || p.includes("healthy") || p.includes("organic") || p.includes("salad") || p.includes("vegan")) {
-      nextConfig.primaryColor = "#10b981"; // Emerald
+    } else if (p.includes("emerald") || p.includes("green") || p.includes("healthy") || p.includes("organic")) {
+      nextConfig.primaryColor = "#10b981";
       nextConfig.secondaryColor = "#059669";
       nextConfig.backgroundColor = "#061510";
       nextConfig.cardColor = "#0b231b";
       nextConfig.fontFamily = "Outfit";
       changes.push("Applied Fresh Emerald Botanical theme with organic culinary styling");
-    } else if (p.includes("flame") || p.includes("bbq") || p.includes("grill") || p.includes("shashlik") || p.includes("plov") || p.includes("uzbek") || p.includes("fire")) {
-      nextConfig.primaryColor = "#f98b25"; // Warm Saffron Amber
+    } else if (p.includes("flame") || p.includes("bbq") || p.includes("grill") || p.includes("plov") || p.includes("uzbek")) {
+      nextConfig.primaryColor = "#f98b25";
       nextConfig.secondaryColor = "#e11d48";
       nextConfig.backgroundColor = "#0d1117";
       nextConfig.cardColor = "#161b22";
       nextConfig.fontFamily = "Outfit";
       nextConfig.heroLayout = "split";
       changes.push("Applied Uzbek Flame Grill & Saffron Amber theme with traditional warmth");
-    } else if (p.includes("cafe") || p.includes("coffee") || p.includes("bakery") || p.includes("pastry") || p.includes("dessert") || p.includes("cozy")) {
-      nextConfig.primaryColor = "#d97706"; // Warm Caramel / Espresso
+    } else if (p.includes("cafe") || p.includes("coffee") || p.includes("bakery")) {
+      nextConfig.primaryColor = "#d97706";
       nextConfig.secondaryColor = "#f59e0b";
       nextConfig.backgroundColor = "#14100c";
-      nextConfig.cardColor = "#1e1814";
+      nextConfig.cardColor = "#1f1814";
       nextConfig.fontFamily = "Outfit";
       changes.push("Applied Artisan Coffeehouse & Warm Espresso palette");
-    } else if (p.includes("pizza") || p.includes("burger") || p.includes("fast") || p.includes("qsr") || p.includes("street")) {
-      nextConfig.primaryColor = "#ef4444"; // Energetic Red
-      nextConfig.secondaryColor = "#f59e0b";
-      nextConfig.backgroundColor = "#0f172a";
-      nextConfig.cardColor = "#1e293b";
-      nextConfig.fontFamily = "Inter";
-      changes.push("Applied High-Energy Fast-Casual Red & Amber theme");
-    } else if (p.includes("blue") || p.includes("modern") || p.includes("minimal") || p.includes("clean") || p.includes("seafood")) {
-      nextConfig.primaryColor = "#3b82f6"; // Cobalt Blue
-      nextConfig.secondaryColor = "#06b6d4";
-      nextConfig.backgroundColor = "#090d16";
-      nextConfig.cardColor = "#111827";
-      nextConfig.fontFamily = "Inter";
-      changes.push("Applied Clean Modernist Cobalt Blue & Slate styling");
     }
 
-    // Direct color tweaks
-    if (p.includes("amber") || p.includes("orange")) {
-      nextConfig.primaryColor = "#f98b25";
-      changes.push("Switched primary accent to Saffron Amber (#f98b25)");
-    } else if (p.includes("ruby") || p.includes("crimson") || p.includes("red")) {
-      nextConfig.primaryColor = "#e11d48";
-      changes.push("Switched primary accent to Crimson Ruby (#e11d48)");
-    } else if (p.includes("purple") || p.includes("violet")) {
-      nextConfig.primaryColor = "#8b5cf6";
-      changes.push("Switched primary accent to Royal Violet (#8b5cf6)");
-    }
-
-    // Direct font tweaks
-    if (p.includes("serif") || p.includes("playfair") || p.includes("classical") || p.includes("elegant font")) {
-      nextConfig.fontFamily = "Playfair Display";
-      changes.push("Updated typography pairing to Elegant Editorial Serif (Playfair Display)");
-    } else if (p.includes("sans") || p.includes("modern font") || p.includes("clean font") || p.includes("inter")) {
-      nextConfig.fontFamily = "Inter";
-      changes.push("Updated typography pairing to Precision Modern Sans (Inter)");
-    }
-
-    // Hero Layout tweaks
-    if (p.includes("split") || p.includes("side by side") || p.includes("showcase photo")) {
-      nextConfig.heroLayout = "split";
-      changes.push("Set Hero section layout to Split Showcase with food imagery");
-    } else if (p.includes("centered") || p.includes("center")) {
-      nextConfig.heroLayout = "centered";
-      changes.push("Centered the Hero title, copy and call-to-action buttons");
-    } else if (p.includes("minimal hero")) {
-      nextConfig.heroLayout = "minimal";
-      changes.push("Simplified Hero into minimal typography banner");
-    }
-
-    // Section Management: Table Booking
     if (p.includes("book") || p.includes("reserv") || p.includes("table")) {
       let bookingSec = nextConfig.sections.find((s) => s.type === "booking");
       if (!bookingSec) {
@@ -143,13 +238,11 @@ export async function POST(request: Request) {
           id: `sec-booking-${Date.now()}`,
           type: "booking",
           title: "Reserve a Table",
-          subtitle: "Dine in luxury with friends and family",
-          content: "Book your preferred date, time, and table seating in seconds with instant confirmation.",
+          subtitle: "ELEVATED DINING EXPERIENCE",
+          content: "Book a table for lunch or dinner with instant SMS confirmation.",
           enabled: true,
         };
-        // Place right after highlights or hero
-        const insertIdx = Math.min(nextConfig.sections.length, 2);
-        nextConfig.sections.splice(insertIdx, 0, bookingSec);
+        nextConfig.sections.splice(2, 0, bookingSec);
         changes.push("Added interactive Table Reservation & Booking module");
       } else {
         bookingSec.enabled = true;
@@ -159,117 +252,48 @@ export async function POST(request: Request) {
       nextConfig.heroButtonLink = "#booking";
     }
 
-    // Section Management: Reviews / Testimonials
-    if (p.includes("review") || p.includes("testimonial") || p.includes("star") || p.includes("feedback")) {
-      let reviewSec = nextConfig.sections.find((s) => s.type === "reviews");
-      if (!reviewSec) {
-        reviewSec = {
+    if (p.includes("review") || p.includes("star") || p.includes("testimonial")) {
+      let revSec = nextConfig.sections.find((s) => s.type === "reviews");
+      if (!revSec) {
+        revSec = {
           id: `sec-reviews-${Date.now()}`,
           type: "reviews",
           title: "Guest Testimonials",
-          subtitle: "Rated 4.9 Stars on Google & Yandex Maps",
-          content: "Join over 12,000 happy food enthusiasts who savor our dishes every week.",
+          subtitle: "4.9 STARS ON GOOGLE & YANDEX",
+          content: "Loved by thousands of food lovers across Tashkent.",
           enabled: true,
         };
-        nextConfig.sections.push(reviewSec);
+        nextConfig.sections.push(revSec);
         changes.push("Added Customer Reviews & 4.9-Star Social Proof section");
       } else {
-        reviewSec.enabled = true;
+        revSec.enabled = true;
         changes.push("Enabled Customer Reviews section");
       }
     }
 
-    // Section Management: Photo Gallery
-    if (p.includes("gallery") || p.includes("photo") || p.includes("instagram") || p.includes("picture")) {
+    if (p.includes("gallery") || p.includes("photo")) {
       let galSec = nextConfig.sections.find((s) => s.type === "gallery");
       if (!galSec) {
         galSec = {
           id: `sec-gallery-${Date.now()}`,
           type: "gallery",
           title: "Culinary Gallery & Moments",
-          subtitle: "A glimpse behind the kitchen flames and warm dining hall",
-          content: "Experience the vibrant ambiance, handcrafted dishes, and culinary mastery.",
+          subtitle: "OUR ATMOSPHERE",
+          content: "Experience the vibrant craft, open flame kitchens, and warm hospitality.",
           enabled: true,
         };
         nextConfig.sections.push(galSec);
-        changes.push("Added Culinary Photo & Atmosphere Gallery");
+        changes.push("Added Photo Gallery showcase");
       } else {
         galSec.enabled = true;
-        changes.push("Enabled Photo Gallery section");
       }
-    }
-
-    // Section Management: FAQ
-    if (p.includes("faq") || p.includes("question") || p.includes("halal") || p.includes("delivery policy")) {
-      let faqSec = nextConfig.sections.find((s) => s.type === "faq");
-      if (!faqSec) {
-        faqSec = {
-          id: `sec-faq-${Date.now()}`,
-          type: "faq",
-          title: "Frequently Asked Questions",
-          subtitle: "Everything you need to know before dining or ordering",
-          content: "100% Halal certified meat • 35-minute delivery radius • Private dining rooms available upon request.",
-          enabled: true,
-        };
-        nextConfig.sections.push(faqSec);
-        changes.push("Added FAQ Accordion with Halal & Delivery details");
-      } else {
-        faqSec.enabled = true;
-        changes.push("Enabled FAQ section");
-      }
-    }
-
-    // Section Management: Announcement Bar
-    if (p.includes("announcement") || p.includes("discount") || p.includes("promo") || p.includes("ramadan") || p.includes("navruz") || p.includes("special")) {
-      let annSec = nextConfig.sections.find((s) => s.type === "announcement");
-      let msg = "⚡ Fast delivery in under 35 minutes across Tashkent • Free delivery on orders over 100,000 UZS";
-      if (p.includes("ramadan") || p.includes("iftar")) {
-        msg = "🌙 Special Iftar Sets & Family Sharing Platters now available for pre-order!";
-      } else if (p.includes("discount") || p.includes("off") || p.includes("promo")) {
-        msg = "🔥 Limited Time: 15% OFF your first direct order with code PLATELY15!";
-      }
-      nextConfig.deliveryNotice = msg;
-      if (!annSec) {
-        annSec = {
-          id: `sec-announcement-${Date.now()}`,
-          type: "announcement",
-          title: "Top Announcement Bar",
-          content: msg,
-          enabled: true,
-        };
-        nextConfig.sections.unshift(annSec);
-      } else {
-        annSec.enabled = true;
-        annSec.content = msg;
-      }
-      changes.push(`Updated Top Announcement banner: "${msg}"`);
-    }
-
-    // Copywriting tweaks based on keywords
-    if (p.includes("plov") || p.includes("pilaf") || p.includes("wedding plov")) {
-      nextConfig.heroHeadline = `Authentic Samarkand Feast at ${restaurantName}`;
-      nextConfig.heroTagline = "Slow-cooked for 4 hours with tender marbled beef, golden carrots, and roasted mountain cumin";
-      nextConfig.aboutStory = `At ${restaurantName}, every cauldron of plov is honored with centuries-old Central Asian culinary traditions. We source only grain-fed Halal beef, organic sweet carrots, and fragrant spices for an unmatched gastronomic journey.`;
-      changes.push("Crafted signature Plov & Heritage storytelling copy");
-    } else if (p.includes("steak") || p.includes("meat") || p.includes("shashlik") || p.includes("kebab")) {
-      nextConfig.heroHeadline = `Master Charcoal Grill & Steaks at ${restaurantName}`;
-      nextConfig.heroTagline = "Tender lamb skewers and prime dry-aged steaks flame-broiled over natural applewood charcoal";
-      changes.push("Crafted Charcoal Grill & Prime Meat hero copy");
-    } else if (p.includes("cozy") || p.includes("bakery") || p.includes("breakfast")) {
-      nextConfig.heroHeadline = `Artisan Bakes & Morning Warmth at ${restaurantName}`;
-      nextConfig.heroTagline = "Fresh sourdough, flaky clay-oven pastries, and specialty roasted espresso";
-      changes.push("Crafted Artisan Bakery & Morning Café copy");
-    } else if (changes.length === 0) {
-      // General enhancement
-      nextConfig.heroHeadline = `Welcome to the New ${restaurantName}`;
-      nextConfig.heroTagline = "Experience hand-crafted culinary excellence delivered to your table or doorstep";
-      changes.push("Refreshed hero branding, typography, and visual harmony");
     }
 
     return NextResponse.json({
       success: true,
-      message: changes.join(" • "),
-      changes,
+      modelUsed: "local-heuristic-engine",
+      message: changes.length > 0 ? changes.join(" • ") : "Design refreshed successfully",
+      changes: changes.length > 0 ? changes : ["Updated styling and typography"],
       config: nextConfig,
     });
   } catch (err: any) {

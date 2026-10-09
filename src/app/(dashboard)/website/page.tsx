@@ -40,6 +40,13 @@ import {
   Send,
   Wand2,
   Copy,
+  Paperclip,
+  Mic,
+  MicOff,
+  FileText,
+  Music,
+  Check,
+  Cpu,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -105,6 +112,13 @@ export interface WebsiteThemeConfig {
   aboutImage?: string;
   deliveryNotice: string;
   sections: WebsiteSection[];
+}
+
+export interface AttachedMedia {
+  name: string;
+  type: string;
+  dataUrl: string;
+  size?: number;
 }
 
 const DEFAULT_SECTIONS: WebsiteSection[] = [
@@ -283,6 +297,37 @@ const PHOTO_PRESETS = [
   { label: "Artisan Coffee & Pastry", url: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80" },
 ];
 
+const GEMINI_MODELS = [
+  {
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    desc: "Lightning fast, high quality multimodal design",
+    badge: "Recommended",
+    icon: "⚡",
+  },
+  {
+    id: "gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    desc: "Deep creative reasoning & tailored copywriting",
+    badge: "Pro Creative",
+    icon: "🧠",
+  },
+  {
+    id: "gemini-3.8-flash",
+    name: "Gemini 3.8 Flash",
+    desc: "Next-generation ultra fast intelligence",
+    badge: "Next-Gen",
+    icon: "🚀",
+  },
+  {
+    id: "gemini-2.5-flash-lite",
+    name: "Gemini 2.5 Lite",
+    desc: "Ultra lightweight, minimal latency edits",
+    badge: "Lightweight",
+    icon: "💨",
+  },
+];
+
 export default function WebsiteBuilderPage() {
   const { user } = useAuthStore();
   const [device, setDevice] = useState<DeviceMode>("desktop");
@@ -293,6 +338,15 @@ export default function WebsiteBuilderPage() {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiCommandText, setAiCommandText] = useState("");
   const [aiStatusMsg, setAiStatusMsg] = useState("");
+
+  // Gemini Model & Multimodal State
+  const [selectedModel, setSelectedModel] = useState<string>("gemini-2.5-flash");
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [attachments, setAttachments] = useState<AttachedMedia[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const restaurantName = user?.restaurant_name || "Kamolon";
   const restaurantSlug = user?.restaurant_slug || "kamolon";
@@ -324,17 +378,20 @@ export default function WebsiteBuilderPage() {
   const [historyIndex, setHistoryIndex] = useState(0);
 
   // Push new state into history
-  const updateConfigWithHistory = useCallback((newConfig: WebsiteThemeConfig | ((prev: WebsiteThemeConfig) => WebsiteThemeConfig)) => {
-    setConfig((prev) => {
-      const resolved = typeof newConfig === "function" ? newConfig(prev) : newConfig;
-      setHistory((h) => {
-        const nextH = h.slice(0, historyIndex + 1);
-        return [...nextH, resolved];
+  const updateConfigWithHistory = useCallback(
+    (newConfig: WebsiteThemeConfig | ((prev: WebsiteThemeConfig) => WebsiteThemeConfig)) => {
+      setConfig((prev) => {
+        const resolved = typeof newConfig === "function" ? newConfig(prev) : newConfig;
+        setHistory((h) => {
+          const nextH = h.slice(0, historyIndex + 1);
+          return [...nextH, resolved];
+        });
+        setHistoryIndex((idx) => idx + 1);
+        return resolved;
       });
-      setHistoryIndex((idx) => idx + 1);
-      return resolved;
-    });
-  }, [historyIndex]);
+    },
+    [historyIndex]
+  );
 
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -395,7 +452,7 @@ export default function WebsiteBuilderPage() {
     }
   };
 
-  // Publish Live (via server API with admin permissions to eliminate RLS errors)
+  // Publish Live
   const handlePublishLive = async () => {
     setIsPublishing(true);
     try {
@@ -414,16 +471,137 @@ export default function WebsiteBuilderPage() {
     }
   };
 
-  // THE MAIN FEATURE: AI Text Command Execution
-  const handleRunAiCommand = async (customPrompt?: string) => {
-    const promptToRun = customPrompt || aiCommandText;
-    if (!promptToRun.trim()) {
-      toast.error("Please enter a command for the AI Copilot");
+  // Attach Files & Photos Handler
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachments((prev) => [
+          ...prev,
+          {
+            name: file.name,
+            type: file.type,
+            dataUrl: reader.result as string,
+            size: file.size,
+          },
+        ]);
+        toast.success(`Attached "${file.name}" for Gemini Vision analysis`);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Clipboard Paste Handler (e.g. user presses Ctrl+V with an image in clipboard)
+  const handleClipboardPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            setAttachments((prev) => [
+              ...prev,
+              {
+                name: `Pasted Image ${new Date().toLocaleTimeString()}.png`,
+                type: blob.type,
+                dataUrl: reader.result as string,
+                size: blob.size,
+              },
+            ]);
+            toast.success("Pasted image attached for Gemini Vision analysis!");
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
+    }
+  };
+
+  // Speech Recognition / Voice Input
+  const toggleSpeechRecognition = () => {
+    if (isRecording) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsRecording(false);
+      toast.info("Microphone stopped");
       return;
     }
 
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast.error("Speech recognition is not supported in this browser. Please use Chrome or Edge.");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        toast.info("🎙️ Listening... Speak your design changes!");
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setAiCommandText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsRecording(false);
+        if (event.error !== "no-speech") {
+          toast.error(`Microphone error: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.start();
+    } catch (err: any) {
+      toast.error("Could not access microphone: " + err.message);
+      setIsRecording(false);
+    }
+  };
+
+  // THE MAIN FEATURE: Gemini AI Text & Multimodal Command Execution
+  const handleRunAiCommand = async (customPrompt?: string) => {
+    const promptToRun = customPrompt || aiCommandText;
+    if (!promptToRun.trim() && attachments.length === 0) {
+      toast.error("Please enter a command or attach an image/file");
+      return;
+    }
+
+    // Stop recording if active
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    }
+
     setIsAiProcessing(true);
-    setAiStatusMsg("AI Copilot analyzing design & structure...");
+    setAiStatusMsg(`Google Gemini (${selectedModel}) analyzing prompt & media...`);
 
     try {
       const res = await fetch("/api/ai/website-command", {
@@ -433,6 +611,8 @@ export default function WebsiteBuilderPage() {
           command: promptToRun,
           currentConfig: config,
           restaurantName,
+          model: selectedModel,
+          attachments,
         }),
       });
 
@@ -441,8 +621,9 @@ export default function WebsiteBuilderPage() {
 
       if (data.config) {
         updateConfigWithHistory(data.config);
-        toast.success(`✨ ${data.message || "Changes applied!"}`);
+        toast.success(`✨ ${data.message || "Changes applied by Gemini AI!"}`);
         setAiCommandText("");
+        setAttachments([]);
       }
     } catch (err: any) {
       toast.error(err?.message || "AI Command execution failed");
@@ -544,6 +725,7 @@ export default function WebsiteBuilderPage() {
   };
 
   const selectedSection = config.sections.find((s) => s.id === selectedSectionId);
+  const activeModelObj = GEMINI_MODELS.find((m) => m.id === selectedModel) || GEMINI_MODELS[0];
 
   return (
     <div className="flex flex-col h-[calc(100vh-4.5rem)] text-slate-100 bg-[#07090e] overflow-hidden select-none">
@@ -692,7 +874,7 @@ export default function WebsiteBuilderPage() {
         <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 flex flex-col items-center justify-start bg-gradient-to-b from-[#0a0d14] to-[#040609]">
           {/* Realistic Browser Viewport Mockup */}
           <div
-            className={`transition-all duration-300 shadow-2xl rounded-2xl border border-white/10 bg-[#0d1117] flex flex-col overflow-hidden mb-28 ${
+            className={`transition-all duration-300 shadow-2xl rounded-2xl border border-white/10 bg-[#0d1117] flex flex-col overflow-hidden mb-32 ${
               device === "desktop"
                 ? "w-full max-w-5xl"
                 : device === "tablet"
@@ -1125,9 +1307,7 @@ export default function WebsiteBuilderPage() {
                             </div>
                           </div>
 
-                          <button
-                            className="px-6 py-3 rounded-xl font-bold text-xs text-white border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
-                          >
+                          <button className="px-6 py-3 rounded-xl font-bold text-xs text-white border border-white/10 bg-white/5 hover:bg-white/10 transition-colors">
                             Open in Yandex & Google Maps
                           </button>
                         </div>
@@ -1212,47 +1392,116 @@ export default function WebsiteBuilderPage() {
           </div>
         </div>
 
-        {/* 3. THE MAIN FEATURE: FLOATING AI TEXT COMMAND BAR */}
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-40">
-          <div className="bg-[#0e131d]/90 backdrop-blur-2xl border border-white/15 p-3 rounded-2xl shadow-2xl shadow-black/80 flex flex-col gap-2.5">
-            {/* Quick Suggestion Chips */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] scrollbar-none">
-              <span className="text-slate-400 font-semibold flex items-center gap-1 shrink-0">
-                <Wand2 className="w-3 h-3 text-[#f98b25]" /> Quick AI:
-              </span>
-              <button
-                onClick={() => handleRunAiCommand("Make design feel like luxury dark steakhouse with gold accents and table booking")}
-                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
-              >
-                👑 Luxury Gold Steakhouse
-              </button>
-              <button
-                onClick={() => handleRunAiCommand("Switch to authentic Uzbek flame grill theme with signature wedding plov")}
-                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
-              >
-                🔥 Uzbek Flame & Plov
-              </button>
-              <button
-                onClick={() => handleRunAiCommand("Add customer Google reviews with 4.9 stars and photo gallery")}
-                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
-              >
-                ⭐️ Reviews & Gallery
-              </button>
-              <button
-                onClick={() => handleRunAiCommand("Add special Ramadan holiday discount banner with 15% off")}
-                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
-              >
-                🌙 Ramadan Promo Banner
-              </button>
-              <button
-                onClick={() => handleRunAiCommand("Make layout fresh emerald green botanical cafe")}
-                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
-              >
-                🌿 Emerald Cafe
-              </button>
+        {/* 3. THE MAIN FEATURE: MULTIMODAL GEMINI AI COMMAND DOCK */}
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-40">
+          <div className="bg-[#0e131d]/95 backdrop-blur-2xl border border-white/15 p-3 rounded-2xl shadow-2xl shadow-black/80 flex flex-col gap-2.5">
+            {/* Top Bar: Model Selector, Quick Prompts & Mode Status */}
+            <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2 text-[11px]">
+              {/* Model Switcher Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 transition-colors font-semibold"
+                >
+                  <span className="text-[#f98b25]">{activeModelObj.icon}</span>
+                  <span>{activeModelObj.name}</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </button>
+
+                {isModelDropdownOpen && (
+                  <div className="absolute bottom-full left-0 mb-2 w-64 bg-[#141a24] border border-white/15 rounded-xl shadow-2xl p-1.5 z-50 space-y-1">
+                    <div className="px-2 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      Select Gemini AI Model
+                    </div>
+                    {GEMINI_MODELS.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedModel(m.id);
+                          setIsModelDropdownOpen(false);
+                          toast.info(`Switched to ${m.name}`);
+                        }}
+                        className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors ${
+                          selectedModel === m.id
+                            ? "bg-[#f98b25]/20 text-[#f98b25] font-bold"
+                            : "hover:bg-white/5 text-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{m.icon}</span>
+                          <div>
+                            <div className="text-xs font-semibold leading-tight">{m.name}</div>
+                            <div className="text-[10px] text-slate-400 leading-tight">{m.desc}</div>
+                          </div>
+                        </div>
+                        {selectedModel === m.id && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Suggestion Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] scrollbar-none flex-1 justify-end">
+                <button
+                  onClick={() => handleRunAiCommand("Make design feel like luxury dark steakhouse with gold accents and table booking")}
+                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+                >
+                  👑 Luxury Gold
+                </button>
+                <button
+                  onClick={() => handleRunAiCommand("Switch to authentic Uzbek flame grill theme with signature wedding plov")}
+                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+                >
+                  🔥 Uzbek Flame
+                </button>
+                <button
+                  onClick={() => handleRunAiCommand("Add customer Google reviews with 4.9 stars and photo gallery")}
+                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+                >
+                  ⭐️ Reviews
+                </button>
+                <button
+                  onClick={() => handleRunAiCommand("Add special Ramadan holiday discount banner with 15% off")}
+                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+                >
+                  🌙 Ramadan
+                </button>
+              </div>
             </div>
 
-            {/* Input & Action */}
+            {/* Attached Media Pills (Photos, Documents, Audio) */}
+            {attachments.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {attachments.map((file, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141a24] border border-[#f98b25]/40 text-xs text-white shrink-0 shadow"
+                  >
+                    {file.type.startsWith("image/") ? (
+                      <div
+                        className="w-5 h-5 rounded bg-cover bg-center border border-white/20 shrink-0"
+                        style={{ backgroundImage: `url(${file.dataUrl})` }}
+                      />
+                    ) : (
+                      <FileText className="w-4 h-4 text-[#f98b25]" />
+                    )}
+                    <span className="max-w-[130px] truncate text-[11px] font-medium">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(idx)}
+                      className="p-0.5 hover:text-rose-400 text-slate-400 ml-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Main Command Input Row */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -1260,23 +1509,64 @@ export default function WebsiteBuilderPage() {
               }}
               className="flex items-center gap-2"
             >
+              {/* Hidden File Picker */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                multiple
+                accept="image/*,application/pdf,.doc,.docx"
+                className="hidden"
+              />
+
+              {/* Attach File/Photo Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 rounded-xl bg-[#141a24] border border-white/10 hover:border-[#f98b25] text-slate-300 hover:text-white transition-colors"
+                title="Attach food photo, logo, or design reference"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+
+              {/* Voice Dictation / Recording Button */}
+              <button
+                type="button"
+                onClick={toggleSpeechRecognition}
+                className={`p-2 rounded-xl border transition-all ${
+                  isRecording
+                    ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse ring-2 ring-rose-500/40"
+                    : "bg-[#141a24] border-white/10 hover:border-[#f98b25] text-slate-300 hover:text-white"
+                }`}
+                title={isRecording ? "Stop Voice Dictation" : "Voice Dictation: Speak changes"}
+              >
+                {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+
+              {/* Input Field with Clipboard Paste Support */}
               <div className="relative flex-1">
                 <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-[#f98b25]">
-                  <Sparkles className="w-4 h-4 animate-pulse" />
+                  <Sparkles className="w-4 h-4" />
                 </div>
                 <input
                   type="text"
                   value={aiCommandText}
                   onChange={(e) => setAiCommandText(e.target.value)}
-                  placeholder="Describe any change to your website... e.g. 'Make hero split layout with booking form and dark theme'"
+                  onPaste={handleClipboardPaste}
+                  placeholder={
+                    isRecording
+                      ? "Listening to your voice..."
+                      : "Describe changes to Gemini... (attach photos, paste images, or speak)"
+                  }
                   disabled={isAiProcessing}
                   className="w-full pl-9 pr-4 py-2.5 bg-[#141a24] border border-white/10 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#f98b25] transition-all"
                 />
               </div>
 
+              {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={isAiProcessing || !aiCommandText.trim()}
+                disabled={isAiProcessing || (!aiCommandText.trim() && attachments.length === 0)}
                 className="bg-[#f98b25] hover:bg-[#e07b1d] text-white text-xs font-semibold px-4 h-9 rounded-xl shrink-0 shadow-lg shadow-[#f98b25]/20"
               >
                 {isAiProcessing ? (
