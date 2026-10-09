@@ -240,6 +240,44 @@ export default function DispatchPage() {
         trackingUrl: dispatchResult.tracking_url,
       };
 
+      // Persist to Supabase orders & deliveries if restaurant exists
+      if (restaurantId) {
+        try {
+          const supabase = createClient();
+          const { data: orderData } = await supabase
+            .from("orders")
+            .insert({
+              restaurant_id: restaurantId,
+              order_number: newDelItem.orderNumber,
+              customer_name: manualCustomer.trim() || "Direct Dispatch",
+              phone: "+998 90 123 45 67",
+              delivery_address: manualAddress.trim(),
+              type: "delivery",
+              status: "confirmed",
+              total: 120000,
+              items: [],
+            })
+            .select("id")
+            .single();
+
+          if (orderData?.id) {
+            await supabase.from("deliveries").insert({
+              order_id: orderData.id,
+              restaurant_id: restaurantId,
+              provider: "noor",
+              external_delivery_id: dispatchResult.external_delivery_id,
+              status: "assigned",
+              tracking_url: dispatchResult.tracking_url,
+              driver_name: "Noor Tech Courier",
+              driver_phone: "+998 90 888 77 66",
+              fee: dispatchResult.fee,
+            });
+          }
+        } catch (dbErr) {
+          console.warn("[Dispatch] DB persistence fallback:", dbErr);
+        }
+      }
+
       setDeliveries([newDelItem, ...deliveries]);
       toast.success(
         `Courier dispatched via Noor! ID: ${dispatchResult.external_delivery_id}`,

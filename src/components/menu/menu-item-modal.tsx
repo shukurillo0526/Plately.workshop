@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Upload, Image as ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/stores/auth-store";
 import type { MenuItem } from "./menu-item-card";
 
 const DEFAULT_CATEGORIES = ["Main", "Appetizer", "Soup", "Bread", "Drink", "Dessert"];
@@ -55,6 +57,51 @@ export function MenuItemModal({
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showManualUrl, setShowManualUrl] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuthStore();
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file (PNG, JPG, WebP)");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file size must be under 10MB");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const supabase = createClient();
+      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const filePath = `${user?.restaurant_id || "general"}/${Date.now()}-${cleanFileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("menu-items")
+        .upload(filePath, file, { cacheControl: "3600", upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage
+        .from("menu-items")
+        .getPublicUrl(filePath);
+
+      setImageUrl(publicData.publicUrl);
+      toast.success("Dish photo uploaded successfully!");
+    } catch (err: any) {
+      console.error("Storage upload error:", err);
+      toast.error(err?.message || "Failed to upload image");
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleAIGenerate = async () => {
     if (!name.trim()) {
@@ -272,18 +319,101 @@ export function MenuItemModal({
             />
           </div>
 
-          {/* Image URL */}
-          <div className="space-y-1.5">
-            <Label htmlFor="item-image" className="text-xs text-gray-300">
-              Image URL (Optional)
-            </Label>
-            <Input
-              id="item-image"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/photos/plov.jpg"
-              className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] focus:border-[#f98b25]"
+          {/* Dish Image Upload & Preview */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-gray-300">Dish Photo</Label>
+              <button
+                type="button"
+                onClick={() => setShowManualUrl(!showManualUrl)}
+                className="text-[11px] text-gray-400 hover:text-white transition-colors underline"
+              >
+                {showManualUrl ? "Hide URL input" : "Or enter direct URL"}
+              </button>
+            </div>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept="image/png,image/jpeg,image/webp,image/jpg"
+              className="hidden"
             />
+
+            {imageUrl ? (
+              <div className="flex items-center gap-3 p-3 bg-[#0D1117] rounded-xl border border-[rgba(255,255,255,0.08)]">
+                <div className="w-16 h-16 rounded-lg overflow-hidden bg-black/40 shrink-0 border border-white/5 relative">
+                  <img
+                    src={imageUrl}
+                    alt="Dish preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-white truncate">Photo attached</p>
+                  <p className="text-[10px] text-gray-400 truncate mt-0.5">{imageUrl}</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingImage}
+                      className="text-[11px] text-[#f98b25] hover:underline font-medium"
+                    >
+                      {isUploadingImage ? "Uploading..." : "Replace photo"}
+                    </button>
+                    <span className="text-gray-600 text-xs">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl("")}
+                      className="text-[11px] text-red-400 hover:underline flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" /> Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                className={`p-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+                  isUploadingImage
+                    ? "border-[#f98b25]/50 bg-[#f98b25]/5 cursor-wait"
+                    : "border-[rgba(255,255,255,0.1)] hover:border-[#f98b25]/50 bg-[#0D1117]/50 hover:bg-[#0D1117]"
+                }`}
+              >
+                {isUploadingImage ? (
+                  <>
+                    <Loader2 className="w-6 h-6 animate-spin text-[#f98b25] mb-2" />
+                    <p className="text-xs font-medium text-white">Uploading to cloud storage...</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Please wait a moment</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-[#f98b25] mb-2">
+                      <Upload className="w-4 h-4" />
+                    </div>
+                    <p className="text-xs font-medium text-white">
+                      Click to upload dish photo
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      PNG, JPG, or WebP up to 10MB
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {showManualUrl && (
+              <div className="pt-2 animate-in fade-in duration-150">
+                <Input
+                  id="item-image"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://example.com/photos/plov.jpg"
+                  className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] focus:border-[#f98b25] text-xs"
+                />
+              </div>
+            )}
           </div>
 
           {/* Dietary Tags */}

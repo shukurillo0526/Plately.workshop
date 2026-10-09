@@ -14,6 +14,8 @@ import {
   X,
   Loader2,
   Sparkles,
+  Star,
+  BookOpen,
 } from "lucide-react";
 import { formatUZS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -26,6 +28,26 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+export interface WebsiteSection {
+  id: string;
+  type: "hero" | "about" | "highlights" | "hours_location" | "reviews" | "cta";
+  title: string;
+  content: string;
+  enabled: boolean;
+  meta?: Record<string, any>;
+}
+
+export interface WebsiteThemeConfig {
+  primaryColor?: string;
+  fontFamily?: "Outfit" | "Inter" | "Playfair Display";
+  heroTagline?: string;
+  heroHeadline?: string;
+  heroButtonText?: string;
+  aboutStory?: string;
+  deliveryNotice?: string;
+  sections?: WebsiteSection[];
+}
 
 interface StoreMenuItem {
   id: string;
@@ -135,6 +157,7 @@ export default function PublicStorefrontPage({
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [confirmedOrderNumber, setConfirmedOrderNumber] = useState<string | null>(null);
+  const [websiteConfig, setWebsiteConfig] = useState<WebsiteThemeConfig | null>(null);
 
   useEffect(() => {
     async function loadStorefront() {
@@ -179,6 +202,17 @@ export default function PublicStorefrontPage({
                 prep_time_minutes: row.prep_time_minutes || 15,
               }))
             );
+          }
+
+          // 3. Fetch published website configuration
+          const { data: webConfig } = await supabase
+            .from("restaurant_website_configs")
+            .select("template")
+            .eq("restaurant_id", rest.id)
+            .maybeSingle();
+
+          if (webConfig?.template) {
+            setWebsiteConfig(webConfig.template as WebsiteThemeConfig);
           }
         }
       } catch (err) {
@@ -298,13 +332,29 @@ export default function PublicStorefrontPage({
     }
   };
 
+  const brandColor = websiteConfig?.primaryColor || "#f98b25";
+
   return (
     <div className="min-h-screen bg-[#0D1117] text-white flex flex-col font-[family-name:var(--font-sans)]">
+      {/* Optional Top Delivery / Announcement Banner */}
+      {websiteConfig?.deliveryNotice && (
+        <div
+          className="px-4 py-2 text-center text-xs font-semibold tracking-wide text-white flex items-center justify-center gap-2 shadow-md"
+          style={{ backgroundColor: brandColor }}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{websiteConfig.deliveryNotice}</span>
+        </div>
+      )}
+
       {/* Top Banner / Restaurant Info */}
       <header className="border-b border-[rgba(255,255,255,0.08)] bg-[#161b22] sticky top-0 z-30 shadow-xl backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#f98b25] to-[#e07a00] flex items-center justify-center font-bold text-white shadow-md shadow-orange-500/20 font-[family-name:var(--font-display)]">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md font-[family-name:var(--font-display)]"
+              style={{ backgroundColor: brandColor }}
+            >
               {restaurant.name.charAt(0)}
             </div>
             <div>
@@ -322,7 +372,8 @@ export default function PublicStorefrontPage({
           {/* Cart Button */}
           <button
             onClick={() => setIsCartOpen(true)}
-            className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-[#f98b25] hover:bg-[#e07b1d] text-white font-medium text-xs transition-all shadow-lg shadow-orange-500/20"
+            className="flex items-center gap-2.5 px-4 py-2 rounded-xl text-white font-medium text-xs transition-all shadow-lg hover:brightness-110 cursor-pointer"
+            style={{ backgroundColor: brandColor }}
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Cart</span>
@@ -339,18 +390,21 @@ export default function PublicStorefrontPage({
       <div className="bg-gradient-to-b from-[#161b22] to-[#0D1117] border-b border-[rgba(255,255,255,0.06)] py-8 px-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-xs uppercase tracking-wider text-[#f98b25] font-semibold">
-              Direct Online Ordering
+            <span
+              className="text-xs uppercase tracking-wider font-semibold"
+              style={{ color: brandColor }}
+            >
+              {websiteConfig?.heroTagline || "Direct Online Ordering"}
             </span>
             <h2 className="text-2xl md:text-3xl font-bold font-[family-name:var(--font-display)] text-white">
-              Order fresh food straight from the kitchen
+              {websiteConfig?.heroHeadline || "Order fresh food straight from the kitchen"}
             </h2>
             <p className="text-xs text-gray-400 flex flex-wrap items-center gap-4 pt-1">
               <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-[#f98b25]" /> {restaurant.address}
+                <MapPin className="w-3.5 h-3.5" style={{ color: brandColor }} /> {restaurant.address}
               </span>
               <span className="flex items-center gap-1">
-                <Phone className="w-3.5 h-3.5 text-[#f98b25]" /> {restaurant.phone}
+                <Phone className="w-3.5 h-3.5" style={{ color: brandColor }} /> {restaurant.phone}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-emerald-400" /> Avg. Prep: 15-20 min
@@ -360,8 +414,34 @@ export default function PublicStorefrontPage({
         </div>
       </div>
 
-      {/* Main Content: Category Tabs & Menu Grid */}
-      <main className="max-w-6xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
+      {/* Main Content: Story, Category Tabs & Menu Grid */}
+      <main className="max-w-6xl mx-auto w-full px-4 py-8 flex-1 space-y-8">
+        {/* Restaurant Heritage Story (if configured) */}
+        {websiteConfig?.aboutStory && (
+          <section className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-start gap-6 shadow-xl">
+            <div
+              className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0"
+              style={{ color: brandColor }}
+            >
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <div className="space-y-2 flex-1">
+              <span
+                className="text-[11px] uppercase tracking-wider font-semibold"
+                style={{ color: brandColor }}
+              >
+                Our Culinary Story
+              </span>
+              <h3 className="text-xl font-bold font-[family-name:var(--font-display)] text-white">
+                About {restaurant.name}
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                {websiteConfig.aboutStory}
+              </p>
+            </div>
+          </section>
+        )}
+
         {/* Search & Categories */}
         <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-[#161b22] p-3 rounded-2xl border border-[rgba(255,255,255,0.06)]">
           <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
@@ -371,9 +451,14 @@ export default function PublicStorefrontPage({
                 onClick={() => setActiveCategory(cat)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
                   activeCategory === cat
-                    ? "bg-[#f98b25] text-white shadow-md shadow-orange-500/20"
+                    ? "text-white shadow-md font-semibold"
                     : "text-gray-400 hover:text-white hover:bg-white/5"
                 }`}
+                style={
+                  activeCategory === cat
+                    ? { backgroundColor: brandColor }
+                    : undefined
+                }
               >
                 {cat}
               </button>
@@ -387,7 +472,7 @@ export default function PublicStorefrontPage({
               placeholder="Search dishes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-xl pl-9 pr-4 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f98b25]"
+              className="w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-xl pl-9 pr-4 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none"
             />
           </div>
         </div>
@@ -395,7 +480,7 @@ export default function PublicStorefrontPage({
         {/* Menu Grid */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <Loader2 className="w-8 h-8 animate-spin text-[#f98b25] mb-2" />
+            <Loader2 className="w-8 h-8 animate-spin mb-2" style={{ color: brandColor }} />
             <p className="text-xs">Loading delicious menu...</p>
           </div>
         ) : filteredItems.length > 0 ? (
@@ -406,8 +491,19 @@ export default function PublicStorefrontPage({
               return (
                 <div
                   key={item.id}
-                  className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.12)] rounded-2xl p-5 flex flex-col justify-between transition-all hover:-translate-y-0.5 shadow-xl group"
+                  className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)] rounded-2xl p-5 flex flex-col justify-between transition-all hover:-translate-y-0.5 shadow-xl group overflow-hidden"
                 >
+                  {/* Dish Image Preview */}
+                  {item.image_url && (
+                    <div className="h-44 -mx-5 -mt-5 mb-4 overflow-hidden relative bg-[#0D1117]">
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <div className="flex justify-between items-start gap-2">
                       <h3 className="font-bold text-white text-base font-[family-name:var(--font-display)]">
@@ -436,7 +532,10 @@ export default function PublicStorefrontPage({
                   </div>
 
                   <div className="pt-5 mt-4 border-t border-[rgba(255,255,255,0.06)] flex items-center justify-between">
-                    <span className="text-base font-bold font-[family-name:var(--font-mono)] text-[#f98b25]">
+                    <span
+                      className="text-base font-bold font-[family-name:var(--font-mono)]"
+                      style={{ color: brandColor }}
+                    >
                       {formatUZS(item.price)}
                     </span>
 
@@ -444,14 +543,15 @@ export default function PublicStorefrontPage({
                       <div className="flex items-center gap-2 bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-xl p-1">
                         <button
                           onClick={() => removeFromCart(item.id)}
-                          className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white"
+                          className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white cursor-pointer"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
                         <span className="text-xs font-mono font-bold px-1">{inCart}</span>
                         <button
                           onClick={() => addToCart(item)}
-                          className="w-6 h-6 flex items-center justify-center rounded-lg bg-[#f98b25] text-white"
+                          className="w-6 h-6 flex items-center justify-center rounded-lg text-white cursor-pointer"
+                          style={{ backgroundColor: brandColor }}
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -459,7 +559,8 @@ export default function PublicStorefrontPage({
                     ) : (
                       <button
                         onClick={() => addToCart(item)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-[#f98b25] text-gray-200 hover:text-white transition-all text-xs font-medium border border-white/5"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-medium text-xs transition-all shadow-md hover:brightness-110 cursor-pointer"
+                        style={{ backgroundColor: brandColor }}
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add</span>
@@ -471,10 +572,39 @@ export default function PublicStorefrontPage({
             })}
           </div>
         ) : (
-          <div className="text-center py-20 text-gray-500 text-xs">
-            No dishes found matching your search.
+          <div className="p-12 text-center text-gray-500 text-xs">
+            No dishes found matching your selection.
           </div>
         )}
+
+        {/* Location & Operating Hours Section */}
+        <section className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] rounded-2xl p-6 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
+          <div className="flex items-center gap-4">
+            <div
+              className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0"
+              style={{ color: brandColor }}
+            >
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">Visit & Dine With Us</h4>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {restaurant.address} • Daily: 10:00 – 23:00
+              </p>
+            </div>
+          </div>
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(
+              restaurant.name + " " + restaurant.address
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-white/10 hover:bg-white/15 transition-colors flex items-center gap-2"
+          >
+            <MapPin className="w-3.5 h-3.5" style={{ color: brandColor }} />
+            <span>Get Directions</span>
+          </a>
+        </section>
       </main>
 
       {/* Floating Cart Drawer */}

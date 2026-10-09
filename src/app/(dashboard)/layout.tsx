@@ -13,8 +13,6 @@ import {
   Users,
   BarChart3,
   Settings,
-  Bell,
-  ChevronDown,
   Menu,
   LogOut,
   Calendar,
@@ -26,8 +24,9 @@ import {
 } from 'lucide-react';
 import { OfflineBanner } from '@/components/common/offline-banner';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
+import { BranchSwitcher } from '@/components/common/branch-switcher';
+import { NotificationCenter } from '@/components/common/notification-center';
 import { useAuthStore, ROUTE_PERMISSIONS } from '@/stores/auth-store';
-import { useBranchStore } from '@/stores/branch-store';
 import { useLanguageStore } from '@/stores/language-store';
 import { createClient } from '@/lib/supabase/client';
 
@@ -58,10 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const { user, hasRole, setUser } = useAuthStore();
-  const { getSelectedBranch } = useBranchStore();
   const { t } = useLanguageStore();
-  
-  const activeBranch = getSelectedBranch();
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -79,7 +75,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   });
 
   const restaurantName = user?.restaurant_name ?? 'My Restaurant';
-  const branchName = activeBranch?.name ?? t('header.main_branch', 'Main Branch');
   
   let initials = 'PL';
   if (user?.display_name) {
@@ -188,22 +183,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Menu className="w-5 h-5" />
             </button>
             <h2 className="text-base font-semibold font-[family-name:var(--font-display)] text-white">{restaurantName}</h2>
-            <button className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-[#161b22] border border-[rgba(255,255,255,0.08)] rounded-full text-gray-400 hover:text-white hover:border-[rgba(255,255,255,0.15)] transition-colors">
-              {branchName}
-              <ChevronDown className="w-3 h-3" />
-            </button>
+            <BranchSwitcher />
           </div>
           
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
 
-            <button 
-              className="relative w-9 h-9 rounded-lg bg-[#161b22] border border-[rgba(255,255,255,0.08)] flex items-center justify-center text-gray-400 hover:text-white hover:border-[rgba(255,255,255,0.15)] transition-colors"
-              title={t('header.notifications', 'Notifications')}
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#f98b25] rounded-full" />
-            </button>
+            <NotificationCenter />
             
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#f98b25] to-[#e07a00] flex items-center justify-center text-sm font-bold text-white cursor-pointer select-none">
               {initials}

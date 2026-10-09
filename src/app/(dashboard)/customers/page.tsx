@@ -137,18 +137,23 @@ export default function CustomersPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("merchant_customers")
-        .select("*")
+        .select("*, customer_loyalty(points_balance)")
         .eq("restaurant_id", restaurantId)
         .order("created_at", { ascending: false });
 
       if (!error && data && data.length > 0) {
         setCustomers(
-          data.map((row) => {
+          data.map((row: any) => {
             const spent = Number(row.total_spent) || 0;
             let tier: LoyaltyTier = "New";
             if (spent > 3000000) tier = "VIP Platinum";
             else if (spent > 1500000) tier = "Gold";
             else if (spent > 500000) tier = "Silver";
+
+            const rawPoints =
+              Array.isArray(row.customer_loyalty) && row.customer_loyalty.length > 0
+                ? row.customer_loyalty[0].points_balance
+                : Math.round(spent / 100);
 
             return {
               id: row.id,
@@ -158,7 +163,7 @@ export default function CustomersPage() {
               totalOrders: row.total_orders || 0,
               totalSpent: spent,
               loyaltyTier: tier,
-              loyaltyPoints: Math.round(spent / 100),
+              loyaltyPoints: Number(rawPoints) || 0,
               lastOrderDate: row.updated_at || row.created_at || new Date().toISOString(),
               notes: row.notes ? [row.notes] : [],
             };
@@ -207,6 +212,65 @@ export default function CustomersPage() {
 
     setNewNote("");
     toast.success("Note added successfully");
+  };
+
+  const handleAdjustPoints = async (delta: number, reason: string) => {
+    if (!selectedCustomer) return;
+    const currentPoints = selectedCustomer.loyaltyPoints || 0;
+    const newPoints = Math.max(0, currentPoints + delta);
+
+    const updatedCustomer = { ...selectedCustomer, loyaltyPoints: newPoints };
+    setSelectedCustomer(updatedCustomer);
+    setCustomers((prev) =>
+      prev.map((c) => (c.id === selectedCustomer.id ? updatedCustomer : c))
+    );
+
+    if (restaurantId && !selectedCustomer.id.startsWith("C-")) {
+      try {
+        const supabase = createClient();
+        const { data: prog } = await supabase
+          .from("loyalty_programs")
+          .select("id")
+          .eq("restaurant_id", restaurantId)
+          .maybeSingle();
+
+        let progId = prog?.id;
+        if (!progId) {
+          const { data: newProg } = await supabase
+            .from("loyalty_programs")
+            .insert({
+              restaurant_id: restaurantId,
+              name: "Standard Rewards",
+              type: "points",
+              config: { earn_rate: 1 },
+            })
+            .select("id")
+            .single();
+          progId = newProg?.id;
+        }
+
+        if (progId) {
+          await supabase.from("customer_loyalty").upsert(
+            {
+              customer_id: selectedCustomer.id,
+              restaurant_id: restaurantId,
+              program_id: progId,
+              points_balance: newPoints,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "customer_id" }
+          );
+        }
+      } catch (err) {
+        console.warn("[CRM] Points adjust error:", err);
+      }
+    }
+
+    toast.success(
+      delta > 0
+        ? `Awarded +${delta} points (${reason})`
+        : `Deducted ${Math.abs(delta)} points (${reason})`
+    );
   };
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
@@ -460,11 +524,40 @@ export default function CustomersPage() {
                     {formatUZS(selectedCustomer.totalSpent)}
                   </p>
                 </div>
-                <div className="p-3 bg-[#0D1117] rounded-xl border border-[rgba(255,255,255,0.06)]">
-                  <p className="text-xs text-gray-400">Loyalty Points</p>
-                  <p className="text-lg font-semibold text-[#f98b25] font-[family-name:var(--font-mono)] mt-1">
-                    {selectedCustomer.loyaltyPoints} pts
-                  </p>
+                <div className="p-3 bg-[#0D1117] rounded-xl border border-[rgba(255,255,255,0.06)] flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-400">Loyalty Points</p>
+                      <span className="text-[9px] text-[#f98b25] font-medium">Rewards</span>
+                    </div>
+                    <p className="text-lg font-semibold text-[#f98b25] font-[family-name:var(--font-mono)] mt-0.5">
+                      {selectedCustomer.loyaltyPoints} pts
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 mt-2 pt-1 border-t border-white/5">
+                    <button
+                      onClick={() => handleAdjustPoints(25, "Appreciation bonus")}
+                      className="px-1.5 py-0.5 rounded text-[10px] bg-white/5 hover:bg-[#f98b25] text-gray-300 hover:text-white transition-colors cursor-pointer"
+                      title="Add 25 loyalty points"
+                    >
+                      +25
+                    </button>
+                    <button
+                      onClick={() => handleAdjustPoints(50, "Visit reward")}
+                      className="px-1.5 py-0.5 rounded text-[10px] bg-white/5 hover:bg-[#f98b25] text-gray-300 hover:text-white transition-colors cursor-pointer"
+                      title="Add 50 loyalty points"
+                    >
+                      +50
+                    </button>
+                    <button
+                      onClick={() => handleAdjustPoints(-50, "Reward redeemed")}
+                      disabled={selectedCustomer.loyaltyPoints < 50}
+                      className="px-1.5 py-0.5 rounded text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-400 disabled:opacity-40 transition-colors ml-auto cursor-pointer"
+                      title="Redeem 50 loyalty points"
+                    >
+                      -50
+                    </button>
+                  </div>
                 </div>
               </div>
 
