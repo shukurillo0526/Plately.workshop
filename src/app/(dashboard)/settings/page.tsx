@@ -17,6 +17,8 @@ import {
   CreditCard,
   Check,
   Sparkles,
+  Globe,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -228,6 +230,7 @@ export default function SettingsPage() {
           name: newBranchName.trim(),
           address: newBranchAddress.trim() || null,
           phone: newBranchPhone.trim() || null,
+          location: "0101000020E610000041F163CC5D4F51407593180456A64440",
           timezone: "Asia/Tashkent",
           is_active: true,
           accepts_delivery: true,
@@ -502,7 +505,20 @@ export default function SettingsPage() {
                         {branch.phone && <p className="text-xs text-slate-500 mt-0.5">{branch.phone}</p>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      {slug && (
+                        <a
+                          href={`/store/${slug}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-[#f98b25] hover:text-[#ff9d42] bg-[#f98b25]/10 border border-[#f98b25]/20 px-3 py-1.5 rounded-lg transition-colors font-medium"
+                          title="Open live branch storefront website"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Branch Website</span>
+                          <ExternalLink className="w-3 h-3 opacity-60" />
+                        </a>
+                      )}
                       <span
                         className={`px-2.5 py-1 text-xs font-medium rounded-full ${
                           branch.is_active
@@ -510,7 +526,7 @@ export default function SettingsPage() {
                             : "bg-slate-800 text-slate-400"
                         }`}
                       >
-                        {branch.is_active ? "Active" : "Inactive"}
+                        {branch.is_active ? "Active in App" : "Inactive"}
                       </span>
                     </div>
                   </div>
