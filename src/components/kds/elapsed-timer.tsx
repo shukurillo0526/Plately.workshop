@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ElapsedTimerProps {
@@ -12,6 +12,7 @@ interface ElapsedTimerProps {
 
 export function ElapsedTimer({ startTime, urgentAfterMs = 180000, className, onUrgent }: ElapsedTimerProps) {
   const [elapsed, setElapsed] = useState(0);
+  const lastUrgentRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     const start = new Date(startTime).getTime();
@@ -28,7 +29,10 @@ export function ElapsedTimer({ startTime, urgentAfterMs = 180000, className, onU
   const isUrgent = elapsed > urgentAfterMs;
   
   useEffect(() => {
-    onUrgent?.(isUrgent);
+    if (lastUrgentRef.current !== isUrgent) {
+      lastUrgentRef.current = isUrgent;
+      onUrgent?.(isUrgent);
+    }
   }, [isUrgent, onUrgent]);
   
   const minutes = Math.floor(elapsed / 60000);

@@ -20,6 +20,9 @@ import {
   Calendar,
   Megaphone,
   X,
+  Globe,
+  Bot,
+  PhoneCall,
 } from 'lucide-react';
 import { OfflineBanner } from '@/components/common/offline-banner';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
@@ -30,6 +33,9 @@ import { createClient } from '@/lib/supabase/client';
 
 const navItems = [
   { key: 'nav.dashboard', name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { key: 'nav.website', name: 'Website Builder', href: '/website', icon: Globe },
+  { key: 'nav.agents', name: 'AI Agents', href: '/agents', icon: Bot },
+  { key: 'nav.voice', name: 'Voice Calls', href: '/voice', icon: PhoneCall },
   { key: 'nav.kds', name: 'KDS', href: '/kds', icon: ChefHat },
   { key: 'nav.menu', name: 'Menu', href: '/menu', icon: UtensilsCrossed },
   { key: 'nav.orders', name: 'Orders', href: '/orders', icon: ShoppingBag },

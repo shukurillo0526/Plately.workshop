@@ -264,11 +264,9 @@ export default function SettingsPage() {
 
     try {
       const supabase = createClient();
-      // Generate a mock or secondary user ID for the invitation
-      const mockUserId = crypto.randomUUID();
 
       const { error } = await supabase.from("staff").insert({
-        user_id: mockUserId,
+        user_id: null,
         restaurant_id: restaurantId,
         display_name: newStaffName.trim(),
         role: newStaffRole,

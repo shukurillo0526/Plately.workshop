@@ -2,7 +2,7 @@
 // Plately Workshop — Supabase Realtime Order Subscription Hook
 // ═══════════════════════════════════════════════════════════════
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useKDSStore } from '@/stores/kds-store';
 import { playNewOrderChime } from '@/lib/audio/sound-effects';
@@ -21,16 +21,28 @@ interface RealtimeOrdersOptions {
  */
 export function useRealtimeOrders(options: RealtimeOrdersOptions = {}) {
   const { restaurantId, enableAudioAlert = true, onOrderInsert, onOrderUpdate } = options;
-  const { setConnectionStatus } = useKDSStore();
+
+  const onInsertRef = useRef(onOrderInsert);
+  const onUpdateRef = useRef(onOrderUpdate);
+  const audioAlertRef = useRef(enableAudioAlert);
 
   useEffect(() => {
-    const supabase = createClient();
-    const filter = restaurantId ? `restaurant_id=eq.${restaurantId}` : undefined;
+    onInsertRef.current = onOrderInsert;
+    onUpdateRef.current = onOrderUpdate;
+    audioAlertRef.current = enableAudioAlert;
+  });
 
-    setConnectionStatus('reconnecting');
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    const supabase = createClient();
+    const filter = `restaurant_id=eq.${restaurantId}`;
+    const setStatus = useKDSStore.getState().setConnectionStatus;
+
+    setStatus('reconnecting');
 
     const channel = supabase
-      .channel('workshop-orders-realtime')
+      .channel(`workshop-orders-${restaurantId}`)
       .on(
         'postgres_changes',
         {
@@ -42,7 +54,7 @@ export function useRealtimeOrders(options: RealtimeOrdersOptions = {}) {
         (payload) => {
           console.log('[Realtime] New order received:', payload.new);
 
-          if (enableAudioAlert) {
+          if (audioAlertRef.current) {
             playNewOrderChime();
           }
 
@@ -51,7 +63,7 @@ export function useRealtimeOrders(options: RealtimeOrdersOptions = {}) {
             duration: 5000,
           });
 
-          onOrderInsert?.(payload.new as Record<string, unknown>);
+          onInsertRef.current?.(payload.new as Record<string, unknown>);
         }
       )
       .on(
@@ -64,19 +76,19 @@ export function useRealtimeOrders(options: RealtimeOrdersOptions = {}) {
         },
         (payload) => {
           console.log('[Realtime] Order status updated:', payload.new);
-          onOrderUpdate?.(payload.new as Record<string, unknown>);
+          onUpdateRef.current?.(payload.new as Record<string, unknown>);
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          setConnectionStatus('connected');
+          setStatus('connected');
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          setConnectionStatus('disconnected');
+          setStatus('disconnected');
         }
       });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, enableAudioAlert, onOrderInsert, onOrderUpdate, setConnectionStatus]);
+  }, [restaurantId]);
 }

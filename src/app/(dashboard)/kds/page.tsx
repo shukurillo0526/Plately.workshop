@@ -141,28 +141,31 @@ export default function KDSPage() {
     }
   };
 
+  const handleOrderInsert = useCallback((newOrderRaw: Record<string, unknown>) => {
+    const newOrder = normalizeKDSOrder(newOrderRaw);
+    setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
+
+    if (autoAccept && newOrder.status === 'confirmed') {
+      handleAction(newOrder.id, 'accept');
+    }
+  }, [autoAccept]);
+
+  const handleOrderUpdate = useCallback((updatedRaw: Record<string, unknown>) => {
+    const updated = normalizeKDSOrder(updatedRaw);
+    setOrders((prev) => {
+      if (updated.status === 'completed' || updated.status === 'rejected' || updated.status === 'cancelled') {
+        return prev.filter((o) => o.id !== updated.id);
+      }
+      return prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o));
+    });
+  }, []);
+
   // Real-time Supabase subscription
   useRealtimeOrders({
     restaurantId,
     enableAudioAlert: isSoundEnabled,
-    onOrderInsert: (newOrderRaw) => {
-      const newOrder = normalizeKDSOrder(newOrderRaw);
-      setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
-
-      if (autoAccept && newOrder.status === 'confirmed') {
-        handleAction(newOrder.id, 'accept');
-      }
-    },
-    onOrderUpdate: (updatedRaw) => {
-      const updated = normalizeKDSOrder(updatedRaw);
-      setOrders((prev) => {
-        // If moved to completed or rejected, remove from active KDS columns
-        if (updated.status === 'completed' || updated.status === 'rejected' || updated.status === 'cancelled') {
-          return prev.filter((o) => o.id !== updated.id);
-        }
-        return prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o));
-      });
-    },
+    onOrderInsert: handleOrderInsert,
+    onOrderUpdate: handleOrderUpdate,
   });
 
   // Reconnection flush
