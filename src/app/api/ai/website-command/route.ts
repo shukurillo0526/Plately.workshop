@@ -2,6 +2,19 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+export interface TableItem {
+  id: string;
+  name: string;
+  seats: number;
+  shape: "rect" | "round" | "booth" | "bar";
+  zone: string;
+  status: "available" | "reserved" | "selected";
+  x: number; // 0 to 100%
+  y: number; // 0 to 100%
+  width?: number;
+  height?: number;
+}
+
 export interface WebsiteSection {
   id: string;
   type:
@@ -10,11 +23,13 @@ export interface WebsiteSection {
     | "about"
     | "highlights"
     | "booking"
+    | "table_selection"
     | "reviews"
     | "hours_location"
     | "gallery"
     | "faq"
-    | "cta";
+    | "cta"
+    | "custom_widget";
   title: string;
   subtitle?: string;
   content: string;
@@ -147,13 +162,33 @@ INSTRUCTIONS:
      - "hero": main banner
      - "about": culinary story & heritage
      - "highlights": signature dishes
+     - "table_selection": INTERACTIVE ARCHITECTURAL FLOOR PLAN & SEATING MAP.
+       CRITICAL: If the user attached a floor plan image, architectural blueprint, or asked for "table selection", "floor plan", "seats", "table map", or "interactive tables":
+       You MUST extract or synthesize the tables and layout into meta:
+       {
+         "interactiveMap": true,
+         "zones": ["Window Booths", "Main Dining", "Private Lounge", "Bar Area"],
+         "tables": [
+           { "id": "t1", "name": "Table 1", "seats": 6, "shape": "booth", "zone": "Window Booths", "status": "available", "x": 16, "y": 20 },
+           { "id": "t2", "name": "Table 2", "seats": 6, "shape": "booth", "zone": "Window Booths", "status": "available", "x": 38, "y": 20 },
+           { "id": "t3", "name": "Table 3", "seats": 6, "shape": "booth", "zone": "Window Booths", "status": "reserved", "x": 60, "y": 20 },
+           { "id": "t-vip8", "name": "VIP Booth 8", "seats": 8, "shape": "booth", "zone": "Private Lounge", "status": "available", "x": 82, "y": 20 },
+           { "id": "t7-mid", "name": "Table 7", "seats": 4, "shape": "rect", "zone": "Main Dining", "status": "available", "x": 28, "y": 50 },
+           { "id": "t8-mid", "name": "Table 8", "seats": 6, "shape": "rect", "zone": "Main Dining", "status": "available", "x": 48, "y": 50 },
+           { "id": "bar", "name": "Cocktail Bar", "seats": 5, "shape": "bar", "zone": "Bar Area", "status": "available", "x": 68, "y": 50 },
+           { "id": "t6", "name": "Table 6", "seats": 4, "shape": "booth", "zone": "Window Booths", "status": "available", "x": 16, "y": 80 },
+           { "id": "t7-bot", "name": "Table 7", "seats": 4, "shape": "booth", "zone": "Window Booths", "status": "available", "x": 38, "y": 80 },
+           { "id": "t8-bot", "name": "Table 8", "seats": 4, "shape": "booth", "zone": "Window Booths", "status": "reserved", "x": 60, "y": 80 }
+         ]
+       }
+     - "custom_widget": AI Studio dynamic custom widget for calculators, meal builders, etc.
      - "booking": table reservation module
      - "reviews": guest testimonials & ratings
      - "hours_location": opening hours & branches
      - "gallery": photo gallery
      - "faq": frequently asked questions
      - "cta": conversion banner
-6. Provide a list of "changes" summarizing your key decisions, and a concise 1-sentence "message" for the user.
+7. Provide a list of "changes" summarizing your key decisions, and a concise 1-sentence "message" for the user.
 
 REQUIRED JSON FORMAT:
 {
@@ -165,14 +200,14 @@ REQUIRED JSON FORMAT:
   "heroHeadline": "...",
   "heroTagline": "...",
   "heroButtonText": "...",
-  "heroButtonLink": "#menu" | "#booking",
+  "heroButtonLink": "#menu" | "#booking" | "#tables",
   "heroLayout": "split" | "centered" | "minimal",
   "heroImage": "https://...",
   "aboutStory": "...",
   "aboutImage": "https://...",
   "deliveryNotice": "...",
   "sections": [
-    { "id": "...", "type": "...", "title": "...", "subtitle": "...", "content": "...", "enabled": true }
+    { "id": "...", "type": "...", "title": "...", "subtitle": "...", "content": "...", "enabled": true, "meta": {} }
   ],
   "changes": ["...", "..."],
   "message": "..."
@@ -301,25 +336,49 @@ REQUIRED JSON FORMAT:
       changes.push("Applied Artisan Coffeehouse & Warm Espresso palette");
     }
 
-    if (p.includes("book") || p.includes("reserv") || p.includes("table")) {
-      let bookingSec = nextConfig.sections.find((s) => s.type === "booking");
-      if (!bookingSec) {
-        bookingSec = {
-          id: `sec-booking-${Date.now()}`,
-          type: "booking",
-          title: "Reserve a Table",
-          subtitle: "ELEVATED DINING EXPERIENCE",
-          content: "Book a table for lunch or dinner with instant SMS confirmation.",
+    if (p.includes("table") || p.includes("floor") || p.includes("seat") || p.includes("plan") || p.includes("map") || p.includes("book") || p.includes("reserv")) {
+      const defaultFloorPlanTables: TableItem[] = [
+        { id: "t1", name: "Table 1", seats: 6, shape: "booth", zone: "Window Booths", status: "available", x: 16, y: 22 },
+        { id: "t2", name: "Table 2", seats: 6, shape: "booth", zone: "Window Booths", status: "available", x: 38, y: 22 },
+        { id: "t3", name: "Table 3", seats: 6, shape: "booth", zone: "Window Booths", status: "reserved", x: 60, y: 22 },
+        { id: "t-vip8", name: "VIP Booth 8", seats: 8, shape: "booth", zone: "Private Lounge", status: "available", x: 82, y: 22 },
+        { id: "t7-mid", name: "Table 7", seats: 4, shape: "rect", zone: "Main Dining", status: "available", x: 28, y: 50 },
+        { id: "t8-mid", name: "Table 8", seats: 6, shape: "rect", zone: "Main Dining", status: "available", x: 48, y: 50 },
+        { id: "bar", name: "Cocktail Bar", seats: 5, shape: "bar", zone: "Bar Area", status: "available", x: 68, y: 50 },
+        { id: "t6", name: "Table 6", seats: 4, shape: "booth", zone: "Window Booths", status: "available", x: 16, y: 78 },
+        { id: "t7-bot", name: "Table 7", seats: 4, shape: "booth", zone: "Window Booths", status: "available", x: 38, y: 78 },
+        { id: "t8-bot", name: "Table 8", seats: 4, shape: "booth", zone: "Window Booths", status: "reserved", x: 60, y: 78 },
+      ];
+
+      let tableSec = nextConfig.sections.find((s) => s.type === "table_selection");
+      if (!tableSec) {
+        tableSec = {
+          id: `sec-tables-${Date.now()}`,
+          type: "table_selection",
+          title: "Select Your Table & Seating",
+          subtitle: "INTERACTIVE ARCHITECTURAL FLOOR PLAN",
+          content: "Click on any table, window booth, or bar seat to check live availability and reserve instantly.",
           enabled: true,
+          meta: {
+            interactiveMap: true,
+            zones: ["All Zones", "Window Booths", "Main Dining", "Private Lounge", "Bar Area"],
+            tables: defaultFloorPlanTables,
+          },
         };
-        nextConfig.sections.splice(2, 0, bookingSec);
-        changes.push("Added interactive Table Reservation & Booking module");
+        // Insert right after hero (index 1)
+        nextConfig.sections.splice(1, 0, tableSec);
+        changes.push("Digitized architectural floor plan sketch into an interactive visual table selection map");
       } else {
-        bookingSec.enabled = true;
-        changes.push("Enabled Table Reservation module");
+        tableSec.enabled = true;
+        tableSec.meta = {
+          interactiveMap: true,
+          zones: ["All Zones", "Window Booths", "Main Dining", "Private Lounge", "Bar Area"],
+          tables: defaultFloorPlanTables,
+        };
+        changes.push("Enabled Interactive Floor Plan with 10 tables & live seat selection");
       }
-      nextConfig.heroButtonText = "Reserve a Table";
-      nextConfig.heroButtonLink = "#booking";
+      nextConfig.heroButtonText = "Select Table & Reserve";
+      nextConfig.heroButtonLink = "#tables";
     }
 
     if (p.includes("review") || p.includes("star") || p.includes("testimonial")) {

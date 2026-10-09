@@ -60,17 +60,32 @@ import { formatUZS } from "@/lib/format";
 
 export type DeviceMode = "desktop" | "tablet" | "mobile";
 
+export interface TableItem {
+  id: string;
+  name: string;
+  seats: number;
+  shape: "rect" | "round" | "booth" | "bar";
+  zone: string;
+  status: "available" | "reserved" | "selected";
+  x: number; // 0 to 100%
+  y: number; // 0 to 100%
+  width?: number;
+  height?: number;
+}
+
 export type SectionType =
   | "announcement"
   | "hero"
   | "about"
   | "highlights"
   | "booking"
+  | "table_selection"
   | "reviews"
   | "hours_location"
   | "gallery"
   | "faq"
-  | "cta";
+  | "cta"
+  | "custom_widget";
 
 export interface WebsiteSection {
   id: string;
@@ -85,6 +100,10 @@ export interface WebsiteSection {
     imageUrl?: string;
     layout?: "centered" | "split" | "minimal";
     badge?: string;
+    interactiveMap?: boolean;
+    zones?: string[];
+    tables?: TableItem[];
+    widgetCode?: string;
     items?: Array<{
       title: string;
       desc?: string;
@@ -121,6 +140,19 @@ export interface AttachedMedia {
   dataUrl: string;
   size?: number;
 }
+
+const DEFAULT_FLOORPLAN_TABLES: TableItem[] = [
+  { id: "t1", name: "Table 1", seats: 6, shape: "booth", zone: "Window Booths", status: "available", x: 16, y: 22 },
+  { id: "t2", name: "Table 2", seats: 6, shape: "booth", zone: "Window Booths", status: "available", x: 38, y: 22 },
+  { id: "t3", name: "Table 3", seats: 6, shape: "booth", zone: "Window Booths", status: "reserved", x: 60, y: 22 },
+  { id: "t-vip8", name: "VIP Booth 8", seats: 8, shape: "booth", zone: "Private Lounge", status: "available", x: 84, y: 22 },
+  { id: "t7-mid", name: "Table 7", seats: 4, shape: "rect", zone: "Main Dining", status: "available", x: 28, y: 50 },
+  { id: "t8-mid", name: "Table 8", seats: 6, shape: "rect", zone: "Main Dining", status: "available", x: 48, y: 50 },
+  { id: "bar", name: "Central Bar", seats: 5, shape: "bar", zone: "Bar Area", status: "available", x: 70, y: 50 },
+  { id: "t6", name: "Table 6", seats: 4, shape: "booth", zone: "Window Booths", status: "available", x: 16, y: 78 },
+  { id: "t7-bot", name: "Table 7", seats: 4, shape: "booth", zone: "Window Booths", status: "available", x: 38, y: 78 },
+  { id: "t8-bot", name: "Table 8", seats: 4, shape: "booth", zone: "Window Booths", status: "reserved", x: 60, y: 78 },
+];
 
 const DEFAULT_SECTIONS: WebsiteSection[] = [
   {
@@ -188,6 +220,19 @@ const DEFAULT_SECTIONS: WebsiteSection[] = [
           image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=80",
         },
       ],
+    },
+  },
+  {
+    id: "sec-tables",
+    type: "table_selection",
+    title: "Interactive Floor Plan & Table Selection",
+    subtitle: "REAL-TIME SEATING MAP",
+    content: "Select your preferred dining table, window booth, or bar seat with live architectural availability.",
+    enabled: true,
+    meta: {
+      interactiveMap: true,
+      zones: ["All Zones", "Window Booths", "Main Dining", "Private Lounge", "Bar Area"],
+      tables: DEFAULT_FLOORPLAN_TABLES,
     },
   },
   {
@@ -336,6 +381,17 @@ export default function WebsiteBuilderPage() {
   const isTablet = device === "tablet";
   const [activeDrawer, setActiveDrawer] = useState<"none" | "blocks" | "inspector" | "theme">("none");
   const [selectedSectionId, setSelectedSectionId] = useState<string>("sec-hero");
+  const [selectedTableId, setSelectedTableId] = useState<string>("t1");
+  const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>("All Zones");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("19:30");
+  const [selectedGuests, setSelectedGuests] = useState<number>(4);
+  const [isAiStudioMode, setIsAiStudioMode] = useState<boolean>(true);
+  const [aiThoughts, setAiThoughts] = useState<string[]>([
+    "Multimodal Vision: Analyzed architectural floor plan sketch & media",
+    "Floor Plan Digitization: Extracted 10 interactive dining tables and zones",
+    "Live Seating Binding: Connected status (Available, Reserved, Selected) to booking",
+    "Responsive Viewport: Synchronized mobile, tablet, and desktop viewports",
+  ]);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -703,6 +759,9 @@ export default function WebsiteBuilderPage() {
 
       if (data.config) {
         updateConfigWithHistory(data.config);
+        if (data.changes && Array.isArray(data.changes)) {
+          setAiThoughts(data.changes);
+        }
         toast.success(`✨ ${data.message || "Changes applied by Gemini AI!"}`);
         setAiCommandText("");
         setAttachments([]);
@@ -884,6 +943,20 @@ export default function WebsiteBuilderPage() {
 
         {/* Right: Drawer Toggles & Actions */}
         <div className="flex items-center gap-2">
+          {/* AI Studio Playground Mode Button */}
+          <button
+            onClick={() => setIsAiStudioMode(!isAiStudioMode)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              isAiStudioMode
+                ? "bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-[#f98b25] text-[#f98b25] shadow-lg shadow-[#f98b25]/10"
+                : "bg-[#141a24] border-white/10 text-slate-300 hover:text-white hover:border-white/20"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>AI Studio</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          </button>
+
           {/* Blocks Drawer Button */}
           <button
             onClick={() => setActiveDrawer(activeDrawer === "blocks" ? "none" : "blocks")}
@@ -952,6 +1025,256 @@ export default function WebsiteBuilderPage() {
 
       {/* 2. MAIN WORKSPACE CANVAS + SLIDE-OVER DRAWERS */}
       <div className="flex-1 relative flex overflow-hidden">
+        {/* LEFT AI STUDIO PLAYGROUND PANEL (Google AI Studio Experience) */}
+        {isAiStudioMode && (
+          <aside className="w-80 md:w-96 border-r border-white/10 bg-[#0c1017] flex flex-col shrink-0 h-full z-30 shadow-2xl transition-all">
+            {/* Top Panel Header */}
+            <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between bg-[#111622]">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-500 to-[#f98b25] flex items-center justify-center text-white shadow">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-xs text-white">AI Studio Assistant</h3>
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>Active: {activeModelObj.name}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAiStudioMode(false)}
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer"
+                title="Collapse AI Studio Panel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Studio Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+              {/* Active Model Selector */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  Intelligence Engine
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {GEMINI_MODELS.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedModel(m.id);
+                        toast.info(`Switched to ${m.name}`);
+                      }}
+                      className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                        selectedModel === m.id
+                          ? "bg-[#f98b25]/15 border-[#f98b25] text-white"
+                          : "bg-white/5 border-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-semibold">
+                        <span>{m.icon}</span>
+                        <span className="truncate">{m.name}</span>
+                      </div>
+                      <div className="text-[9px] text-slate-400 truncate mt-0.5">{m.badge}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step-by-Step AI Reasoning Bullets (Like Google AI Studio in Image 4!) */}
+              <div className="space-y-2 p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" />
+                    <span>Verification & Trace</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">Realtime</span>
+                </div>
+
+                <div className="space-y-2 pt-1 text-slate-300 text-[11px]">
+                  {aiThoughts.map((t, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="text-[#f98b25] font-bold mt-0.5">•</span>
+                      <p className="leading-snug">{t}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Checkpoint & History Actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/10 text-[11px]">
+                  <span className="text-slate-400">Checkpoint #{historyIndex + 1}</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleUndo}
+                      disabled={historyIndex <= 0}
+                      className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 disabled:opacity-30 cursor-pointer"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRedo}
+                      disabled={historyIndex >= history.length - 1}
+                      className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 disabled:opacity-30 cursor-pointer"
+                    >
+                      Redo
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick AI Presets / Capabilities */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  Quick Actions
+                </span>
+                <div className="flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleRunAiCommand(
+                        "Add interactive architectural floor plan & seating chart with live table booking"
+                      )
+                    }
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left text-slate-200 flex items-center justify-between group transition-colors cursor-pointer"
+                  >
+                    <span>🗺️ Add Interactive Floor Plan</span>
+                    <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">Run →</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleRunAiCommand(
+                        "Design luxury dark steakhouse with royal gold buttons, fine dining typography, and VIP table reservations"
+                      )
+                    }
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left text-slate-200 flex items-center justify-between group transition-colors cursor-pointer"
+                  >
+                    <span>👑 Luxury Gold Steakhouse</span>
+                    <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">Run →</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleRunAiCommand(
+                        "Switch to authentic Uzbek flame grill theme with signature wedding plov and clay oven somsa"
+                      )
+                    }
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left text-slate-200 flex items-center justify-between group transition-colors cursor-pointer"
+                  >
+                    <span>🔥 Authentic Uzbek Flame Grill</span>
+                    <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">Run →</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleRunAiCommand(
+                        "Add special Ramadan holiday discount banner with 15% off and Iftar dates"
+                      )
+                    }
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left text-slate-200 flex items-center justify-between group transition-colors cursor-pointer"
+                  >
+                    <span>🌙 Ramadan Iftar Special</span>
+                    <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">Run →</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Command Dock inside Sidebar */}
+            <div className="p-3 border-t border-white/10 bg-[#111622] space-y-2">
+              {/* Attached Media List */}
+              {attachments.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {attachments.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-white shrink-0"
+                    >
+                      <span className="truncate max-w-[90px]">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(idx)}
+                        className="hover:text-rose-400 text-slate-400 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Recording indicator */}
+              {isRecording && (
+                <div className="p-2 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs flex items-center justify-between">
+                  <span className="animate-pulse">🎙️ Recording: {recordingSeconds}s</span>
+                  <button
+                    type="button"
+                    onClick={stopAudioRecording}
+                    className="px-2 py-0.5 rounded bg-rose-500 text-white font-bold text-[10px] cursor-pointer"
+                  >
+                    Stop
+                  </button>
+                </div>
+              )}
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleRunAiCommand();
+                }}
+                className="flex items-center gap-1.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer"
+                  title="Attach Floor Plan or Photo"
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleAudioRecording}
+                  className={`p-2 rounded-xl border cursor-pointer ${
+                    isRecording
+                      ? "bg-rose-500 text-white animate-pulse"
+                      : "bg-white/5 text-slate-300 hover:text-white border-white/10"
+                  }`}
+                  title="Record Voice"
+                >
+                  <Mic className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  type="text"
+                  value={aiCommandText}
+                  onChange={(e) => setAiCommandText(e.target.value)}
+                  onPaste={handleClipboardPaste}
+                  placeholder="Ask Gemini to build anything..."
+                  disabled={isAiProcessing}
+                  className="flex-1 bg-[#090d16] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#f98b25]"
+                />
+                <Button
+                  type="submit"
+                  disabled={isAiProcessing || (!aiCommandText.trim() && attachments.length === 0)}
+                  className="bg-[#f98b25] hover:bg-[#e07b1d] text-white h-8 px-3 rounded-xl shrink-0 cursor-pointer"
+                >
+                  {isAiProcessing ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Send className="w-3 h-3" />
+                  )}
+                </Button>
+              </form>
+            </div>
+          </aside>
+        )}
+
         {/* CENTER STAGE: LIVE INTERACTIVE PREVIEW */}
         <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 flex flex-col items-center justify-start bg-gradient-to-b from-[#0a0d14] to-[#040609]">
           {/* Realistic Browser Viewport Mockup */}
@@ -1365,6 +1688,325 @@ export default function WebsiteBuilderPage() {
                         </div>
                       )}
 
+                      {/* SECTION: INTERACTIVE ARCHITECTURAL FLOOR PLAN & TABLE SELECTION */}
+                      {section.type === "table_selection" && (() => {
+                        const tables: TableItem[] = section.meta?.tables || DEFAULT_FLOORPLAN_TABLES;
+                        const zones: string[] = section.meta?.zones || [
+                          "All Zones",
+                          "Window Booths",
+                          "Main Dining",
+                          "Private Lounge",
+                          "Bar Area",
+                        ];
+                        const filteredTables =
+                          selectedZoneFilter === "All Zones"
+                            ? tables
+                            : tables.filter((t) => t.zone === selectedZoneFilter);
+                        const activeTable = tables.find((t) => t.id === selectedTableId) || tables[0];
+
+                        return (
+                          <div className="space-y-6">
+                            {/* Section Title & Subtitle */}
+                            <div className="text-center max-w-xl mx-auto space-y-1">
+                              <span
+                                className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-white/10"
+                                style={{
+                                  backgroundColor: `${config.primaryColor}15`,
+                                  color: config.primaryColor,
+                                }}
+                              >
+                                {section.subtitle || "LIVE ARCHITECTURAL SEATING"}
+                              </span>
+                              <h2
+                                className={`font-bold text-white tracking-tight ${
+                                  isMobile ? "text-xl" : "text-2xl md:text-3xl"
+                                }`}
+                              >
+                                {section.title || "Select Your Table & Seating"}
+                              </h2>
+                              <p className="text-xs text-slate-400">
+                                {section.content ||
+                                  "Click on any table, booth, or bar seat to check live availability and reserve instantly."}
+                              </p>
+                            </div>
+
+                            {/* Zone Filters & Status Legend */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-b border-white/[0.06] pb-3">
+                              {/* Zone Filter Buttons */}
+                              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+                                {zones.map((zone) => (
+                                  <button
+                                    key={zone}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedZoneFilter(zone);
+                                    }}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                                      selectedZoneFilter === zone
+                                        ? "text-white shadow-md font-semibold"
+                                        : "bg-white/5 text-slate-400 hover:text-white border border-white/5"
+                                    }`}
+                                    style={
+                                      selectedZoneFilter === zone
+                                        ? { backgroundColor: config.primaryColor }
+                                        : {}
+                                    }
+                                  >
+                                    {zone}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Legend */}
+                              <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
+                                  <span>Available</span>
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                                  <span>Reserved</span>
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full border-2"
+                                    style={{ borderColor: config.primaryColor }}
+                                  />
+                                  <span>Selected</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Architectural Blueprint Canvas */}
+                            <div className="relative w-full rounded-2xl bg-[#090d16] border border-white/10 p-4 md:p-6 overflow-hidden shadow-2xl">
+                              {/* Grid Texture */}
+                              <div
+                                className="absolute inset-0 opacity-15 pointer-events-none"
+                                style={{
+                                  backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.2) 1px, transparent 0)`,
+                                  backgroundSize: "24px 24px",
+                                }}
+                              />
+
+                              {/* Architectural Boundaries & Walls */}
+                              <div className="relative z-10 w-full min-h-[380px] md:min-h-[460px] border border-dashed border-white/20 rounded-xl p-3 flex flex-col justify-between">
+                                {/* Top Wall */}
+                                <div className="flex items-center justify-between text-[10px] uppercase font-mono tracking-widest text-slate-500 border-b border-white/10 pb-1">
+                                  <span className="flex items-center gap-1">🪟 PANORAMIC WINDOW BOOTHS</span>
+                                  <span className="text-amber-400/80">VIP PRIVATE SUITE (BOOTH 8) →</span>
+                                </div>
+
+                                {/* Tables Area */}
+                                <div className="relative flex-1 min-h-[300px] md:min-h-[380px] my-2">
+                                  {/* Kitchen Marker */}
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 w-24 md:w-28 h-32 md:h-36 border border-white/10 rounded-lg bg-white/[0.02] p-2 flex flex-col items-center justify-center text-center pointer-events-none">
+                                    <ChefHat className="w-5 h-5 text-slate-600 mb-1" />
+                                    <span className="text-[10px] font-mono text-slate-500 uppercase font-bold">
+                                      KITCHEN
+                                    </span>
+                                    <span className="text-[8px] text-slate-600">Staff Pass Only</span>
+                                  </div>
+
+                                  {/* Tables */}
+                                  {filteredTables.map((table) => {
+                                    const isSelected = selectedTableId === table.id;
+                                    const isReserved = table.status === "reserved";
+
+                                    return (
+                                      <div
+                                        key={table.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (isReserved) {
+                                            toast.error(
+                                              `${table.name} is booked for the current time slot. Choose an available table.`
+                                            );
+                                            return;
+                                          }
+                                          setSelectedTableId(table.id);
+                                          toast.success(
+                                            `Selected ${table.name} (${table.seats} Seats • ${table.zone})`
+                                          );
+                                        }}
+                                        className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 group select-none ${
+                                          table.shape === "bar"
+                                            ? "w-28 md:w-36 h-12 md:h-14"
+                                            : table.seats >= 6
+                                            ? "w-20 md:w-24 h-16 md:h-20"
+                                            : "w-16 md:w-18 h-14 md:h-16"
+                                        }`}
+                                        style={{
+                                          left: `${table.x}%`,
+                                          top: `${table.y}%`,
+                                        }}
+                                      >
+                                        <div
+                                          className={`w-full h-full rounded-xl border flex flex-col items-center justify-center p-1 relative transition-all ${
+                                            isSelected
+                                              ? "shadow-xl ring-4 ring-offset-2 ring-offset-[#090d16] scale-105"
+                                              : isReserved
+                                              ? "bg-slate-900/60 border-rose-500/40 opacity-70"
+                                              : "bg-[#141a24] border-white/20 hover:border-emerald-400/80 hover:scale-105 shadow-md"
+                                          }`}
+                                          style={
+                                            isSelected
+                                              ? {
+                                                  backgroundColor: `${config.primaryColor}25`,
+                                                  borderColor: config.primaryColor,
+                                                  boxShadow: `0 0 25px ${config.primaryColor}50`,
+                                                }
+                                              : {}
+                                          }
+                                        >
+                                          {/* Chairs Around Table */}
+                                          {table.shape !== "bar" && (
+                                            <>
+                                              <div className="absolute -top-1.5 inset-x-2 flex justify-around pointer-events-none">
+                                                {[...Array(Math.ceil(table.seats / 2))].map((_, i) => (
+                                                  <span
+                                                    key={i}
+                                                    className="w-1.5 h-1.5 rounded-full bg-slate-500/80"
+                                                  />
+                                                ))}
+                                              </div>
+                                              <div className="absolute -bottom-1.5 inset-x-2 flex justify-around pointer-events-none">
+                                                {[...Array(Math.floor(table.seats / 2))].map((_, i) => (
+                                                  <span
+                                                    key={i}
+                                                    className="w-1.5 h-1.5 rounded-full bg-slate-500/80"
+                                                  />
+                                                ))}
+                                              </div>
+                                            </>
+                                          )}
+
+                                          {/* Label & Capacity */}
+                                          <div className="text-[11px] font-bold text-white leading-tight flex items-center gap-1">
+                                            <span>{table.name}</span>
+                                            {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
+                                          </div>
+                                          <div className="text-[9px] text-slate-400 font-mono">
+                                            {table.shape === "bar" ? "5 Stools" : `${table.seats} Seats`}
+                                          </div>
+
+                                          <span
+                                            className={`text-[8px] font-bold uppercase px-1.5 py-0.2 rounded mt-0.5 ${
+                                              isReserved
+                                                ? "bg-rose-500/20 text-rose-400"
+                                                : isSelected
+                                                ? "bg-emerald-500/20 text-emerald-300"
+                                                : "bg-white/10 text-slate-300"
+                                            }`}
+                                          >
+                                            {isReserved ? "Booked" : isSelected ? "Selected" : "Open"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Bottom Wall */}
+                                <div className="flex items-center justify-between text-[10px] uppercase font-mono tracking-widest text-slate-500 border-t border-white/10 pt-1">
+                                  <span>← COURTYARD PATIO</span>
+                                  <span className="flex items-center gap-1 text-emerald-400">
+                                    🚪 MAIN ENTRANCE & FOYER
+                                  </span>
+                                  <span>RESTROOMS 🚻</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Active Table Booking Action Card */}
+                            {activeTable && (
+                              <div
+                                className="rounded-2xl border border-white/15 p-5 md:p-6 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6"
+                                style={{ backgroundColor: `${config.cardColor || "#161b22"}e6` }}
+                              >
+                                <div className="space-y-2 text-left w-full md:w-auto">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full animate-ping"
+                                      style={{ backgroundColor: config.primaryColor }}
+                                    />
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                      Selected for Reservation:
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-3">
+                                    <h3 className="text-xl md:text-2xl font-extrabold text-white">
+                                      {activeTable.name}
+                                    </h3>
+                                    <span
+                                      className="text-xs px-2.5 py-0.5 rounded-full font-bold uppercase"
+                                      style={{
+                                        backgroundColor: `${config.primaryColor}25`,
+                                        color: config.primaryColor,
+                                      }}
+                                    >
+                                      {activeTable.zone}
+                                    </span>
+                                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-medium">
+                                      Up to {activeTable.seats} Guests
+                                    </span>
+                                  </div>
+
+                                  <p className="text-xs text-slate-300">
+                                    Includes complimentary tea service, dedicated table server, and immediate seating upon arrival.
+                                  </p>
+                                </div>
+
+                                <div className="flex flex-col gap-1.5 w-full md:w-auto">
+                                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Select Time:
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    {["17:00", "18:30", "19:30", "20:30", "21:30"].map((t) => (
+                                      <button
+                                        key={t}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedTimeSlot(t);
+                                        }}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                          selectedTimeSlot === t
+                                            ? "text-white shadow-lg"
+                                            : "bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5"
+                                        }`}
+                                        style={
+                                          selectedTimeSlot === t
+                                            ? { backgroundColor: config.primaryColor }
+                                            : {}
+                                        }
+                                      >
+                                        {t}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toast.success(
+                                      `🎉 ${activeTable.name} reserved for ${selectedTimeSlot}! Instant SMS & WhatsApp confirmation sent.`
+                                    );
+                                  }}
+                                  className="w-full md:w-auto px-8 py-3.5 rounded-xl font-bold text-sm text-white shadow-2xl transition-transform hover:scale-105 shrink-0 cursor-pointer"
+                                  style={{ backgroundColor: config.primaryColor }}
+                                >
+                                  Confirm {activeTable.name} ({selectedTimeSlot})
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       {/* SECTION 4: TABLE RESERVATION */}
                       {section.type === "booking" && (
                         <div
@@ -1632,8 +2274,9 @@ export default function WebsiteBuilderPage() {
           </div>
         </div>
 
-        {/* 3. THE MAIN FEATURE: MULTIMODAL GEMINI AI COMMAND DOCK */}
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-40">
+        {/* 3. THE MAIN FEATURE: MULTIMODAL GEMINI AI COMMAND DOCK (Shown when not in AI Studio mode) */}
+        {!isAiStudioMode && (
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-40">
           <div className="bg-[#0e131d]/95 backdrop-blur-2xl border border-white/15 p-3 rounded-2xl shadow-2xl shadow-black/80 flex flex-col gap-2.5">
             {/* Top Bar: Model Selector, Quick Prompts & Mode Status */}
             <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2 text-[11px]">
@@ -1852,6 +2495,7 @@ export default function WebsiteBuilderPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* 4. ADDITIONAL FEATURE: COLLAPSIBLE SLIDE-OVER DRAWER (BLOCKS / INSPECTOR / THEME) */}
         {activeDrawer !== "none" && (
