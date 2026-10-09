@@ -306,17 +306,17 @@ const GEMINI_MODELS = [
     icon: "⚡",
   },
   {
-    id: "gemini-2.5-pro",
-    name: "Gemini 2.5 Pro",
+    id: "gemini-3.1-pro-preview",
+    name: "Gemini 3.1 Pro",
     desc: "Deep creative reasoning & tailored copywriting",
     badge: "Pro Creative",
     icon: "🧠",
   },
   {
-    id: "gemini-3.8-flash",
-    name: "Gemini 3.8 Flash",
-    desc: "Next-generation ultra fast intelligence",
-    badge: "Next-Gen",
+    id: "gemini-flash-latest",
+    name: "Gemini Flash Latest",
+    desc: "Flagship speed & responsive layout generation",
+    badge: "Flagship",
     icon: "🚀",
   },
   {
@@ -343,7 +343,6 @@ export default function WebsiteBuilderPage() {
   const [selectedModel, setSelectedModel] = useState<string>("gemini-2.5-flash");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [attachments, setAttachments] = useState<AttachedMedia[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -471,6 +470,14 @@ export default function WebsiteBuilderPage() {
     }
   };
 
+  // MediaRecorder Voice Audio Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
   // Attach Files & Photos Handler
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -478,17 +485,41 @@ export default function WebsiteBuilderPage() {
 
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
+        const base64DataUrl = reader.result as string;
         setAttachments((prev) => [
           ...prev,
           {
             name: file.name,
             type: file.type,
-            dataUrl: reader.result as string,
+            dataUrl: base64DataUrl,
             size: file.size,
           },
         ]);
-        toast.success(`Attached "${file.name}" for Gemini Vision analysis`);
+        toast.success(`Attached "${file.name}" for Gemini analysis`);
+
+        // If it's an audio file, automatically transcribe it with Gemini!
+        if (file.type.startsWith("audio/")) {
+          setIsTranscribing(true);
+          setAiStatusMsg("Transcribing audio file with Gemini AI...");
+          try {
+            const res = await fetch("/api/ai/transcribe", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ audioDataUrl: base64DataUrl }),
+            });
+            const data = await res.json();
+            if (data.text) {
+              setAiCommandText((prev) => (prev ? `${prev} ${data.text}` : data.text));
+              toast.success(`🎙️ Transcribed audio: "${data.text}"`);
+            }
+          } catch (e: any) {
+            console.warn("Transcribe error:", e);
+          } finally {
+            setIsTranscribing(false);
+            setAiStatusMsg("");
+          }
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -526,63 +557,112 @@ export default function WebsiteBuilderPage() {
     }
   };
 
-  // Speech Recognition / Voice Input
-  const toggleSpeechRecognition = () => {
-    if (isRecording) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsRecording(false);
-      toast.info("Microphone stopped");
-      return;
-    }
-
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      toast.error("Speech recognition is not supported in this browser. Please use Chrome or Edge.");
-      return;
-    }
-
+  // True MediaRecorder Voice Recording Engine
+  const startAudioRecording = async () => {
     try {
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error("Microphone recording is not supported in this browser.");
+        return;
+      }
 
-      recognition.onstart = () => {
-        setIsRecording(true);
-        toast.info("🎙️ Listening... Speak your design changes!");
-      };
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
 
-      recognition.onresult = (event: any) => {
-        let transcript = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
-        }
-        if (transcript) {
-          setAiCommandText((prev) => (prev ? `${prev} ${transcript}` : transcript));
-        }
-      };
+      let mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported("audio/webm")) {
+        mimeType = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+      }
 
-      recognition.onerror = (event: any) => {
-        console.warn("Speech recognition error:", event.error);
-        setIsRecording(false);
-        if (event.error !== "no-speech") {
-          toast.error(`Microphone error: ${event.error}`);
+      const mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
       };
 
-      recognition.onend = () => {
-        setIsRecording(false);
+      mediaRecorder.onstop = async () => {
+        clearInterval(recordingTimerRef.current);
+        stream.getTracks().forEach((track) => track.stop());
+
+        if (audioChunksRef.current.length === 0) return;
+
+        const actualType = mimeType || "audio/webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualType });
+        const reader = new FileReader();
+
+        reader.onload = async () => {
+          const base64DataUrl = reader.result as string;
+
+          // 1. Attach voice memo to attachments pill
+          setAttachments((prev) => [
+            ...prev,
+            {
+              name: `Voice Memo (${recordingSeconds}s).webm`,
+              type: actualType,
+              dataUrl: base64DataUrl,
+              size: audioBlob.size,
+            },
+          ]);
+
+          // 2. Transcribe voice memo using Gemini AI
+          setIsTranscribing(true);
+          setAiStatusMsg("Gemini AI transcribing your spoken voice...");
+          try {
+            const res = await fetch("/api/ai/transcribe", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ audioDataUrl: base64DataUrl }),
+            });
+            const data = await res.json();
+            if (data.text) {
+              setAiCommandText((prev) => (prev ? `${prev} ${data.text}` : data.text));
+              toast.success(`🎙️ Transcribed: "${data.text}"`);
+            } else {
+              toast.info("Voice memo recorded & attached for Gemini AI!");
+            }
+          } catch (e: any) {
+            console.warn("Transcription error:", e);
+            toast.info("Voice memo recorded & attached for Gemini AI!");
+          } finally {
+            setIsTranscribing(false);
+            setAiStatusMsg("");
+          }
+        };
+
+        reader.readAsDataURL(audioBlob);
       };
 
-      recognition.start();
+      mediaRecorder.start(250);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+      toast.info("🎙️ Recording started! Speak your website changes...");
     } catch (err: any) {
-      toast.error("Could not access microphone: " + err.message);
+      console.error("Audio recording error:", err);
+      toast.error("Microphone access denied: " + (err.message || "Please allow mic permissions"));
       setIsRecording(false);
+    }
+  };
+
+  const stopAudioRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    clearInterval(recordingTimerRef.current);
+  };
+
+  const toggleAudioRecording = () => {
+    if (isRecording) {
+      stopAudioRecording();
+    } else {
+      startAudioRecording();
     }
   };
 
@@ -590,14 +670,13 @@ export default function WebsiteBuilderPage() {
   const handleRunAiCommand = async (customPrompt?: string) => {
     const promptToRun = customPrompt || aiCommandText;
     if (!promptToRun.trim() && attachments.length === 0) {
-      toast.error("Please enter a command or attach an image/file");
+      toast.error("Please enter a command, record audio, or attach an image/file");
       return;
     }
 
     // Stop recording if active
-    if (isRecording && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
+    if (isRecording) {
+      stopAudioRecording();
     }
 
     setIsAiProcessing(true);
@@ -1501,6 +1580,33 @@ export default function WebsiteBuilderPage() {
               </div>
             )}
 
+            {/* Live Audio Recording Bar */}
+            {isRecording && (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs shadow-lg animate-pulse">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                  <span className="font-bold text-white">Recording Voice Audio: {recordingSeconds}s</span>
+                  <span className="text-[11px] text-slate-400 hidden sm:inline">(Speak Uzbek, Russian, or English...)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={stopAudioRecording}
+                  className="px-3 py-1 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span className="w-2 h-2 rounded-sm bg-white" />
+                  <span>Stop & Transcribe</span>
+                </button>
+              </div>
+            )}
+
+            {/* Transcribing Indicator */}
+            {isTranscribing && (
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-[#f98b25]/15 border border-[#f98b25]/30 text-[#f98b25] text-xs font-medium">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Gemini AI is transcribing your voice recording...</span>
+              </div>
+            )}
+
             {/* Main Command Input Row */}
             <form
               onSubmit={(e) => {
@@ -1515,30 +1621,30 @@ export default function WebsiteBuilderPage() {
                 ref={fileInputRef}
                 onChange={handleFileSelect}
                 multiple
-                accept="image/*,application/pdf,.doc,.docx"
+                accept="image/*,audio/*,application/pdf,.doc,.docx"
                 className="hidden"
               />
 
-              {/* Attach File/Photo Button */}
+              {/* Attach File/Photo/Audio Button */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-xl bg-[#141a24] border border-white/10 hover:border-[#f98b25] text-slate-300 hover:text-white transition-colors"
-                title="Attach food photo, logo, or design reference"
+                className="p-2 rounded-xl bg-[#141a24] border border-white/10 hover:border-[#f98b25] text-slate-300 hover:text-white transition-colors cursor-pointer"
+                title="Attach food photo, audio memo, logo, or PDF"
               >
                 <Paperclip className="w-4 h-4" />
               </button>
 
-              {/* Voice Dictation / Recording Button */}
+              {/* Voice Audio Recording Button */}
               <button
                 type="button"
-                onClick={toggleSpeechRecognition}
-                className={`p-2 rounded-xl border transition-all ${
+                onClick={toggleAudioRecording}
+                className={`p-2 rounded-xl border transition-all cursor-pointer ${
                   isRecording
-                    ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse ring-2 ring-rose-500/40"
+                    ? "bg-rose-500 border-rose-400 text-white animate-pulse ring-4 ring-rose-500/40"
                     : "bg-[#141a24] border-white/10 hover:border-[#f98b25] text-slate-300 hover:text-white"
                 }`}
-                title={isRecording ? "Stop Voice Dictation" : "Voice Dictation: Speak changes"}
+                title={isRecording ? "Stop Audio Recording" : "Record Voice Memo (MediaRecorder)"}
               >
                 {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>

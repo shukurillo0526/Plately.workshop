@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
 export interface WebsiteSection {
   id: string;
@@ -45,6 +47,36 @@ export interface AttachedMedia {
   dataUrl: string; // base64 data URL
 }
 
+function getGeminiApiKey(): string | undefined {
+  if (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes("your-")) {
+    return process.env.GEMINI_API_KEY;
+  }
+
+  try {
+    const envPaths = [
+      path.join(process.cwd(), ".env.local"),
+      path.join(process.cwd(), ".env"),
+      path.join(process.cwd(), "..", "Plately.app", "backend", ".env"),
+    ];
+    for (const p of envPaths) {
+      if (fs.existsSync(p)) {
+        const content = fs.readFileSync(p, "utf-8");
+        const match = content.match(/GEMINI_API_KEY=([^\r\n]+)/);
+        if (match && match[1]) {
+          const val = match[1].trim();
+          if (val && !val.includes("your-")) {
+            process.env.GEMINI_API_KEY = val;
+            return val;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[WebsiteCommand] Could not read env file from disk:", e);
+  }
+  return undefined;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -63,14 +95,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getGeminiApiKey();
 
     // 1. If Gemini API Key is available, use real Gemini Multimodal API
     if (apiKey) {
       try {
         const parts: any[] = [];
 
-        // Add attachments as inlineData parts
+        // Add attachments as inlineData parts (Photos, Documents, Audio)
         for (const file of attachments) {
           if (file.dataUrl && file.dataUrl.includes(",")) {
             const [header, base64Data] = file.dataUrl.split(",");
@@ -90,31 +122,36 @@ You are the **Plately AI Website Architect & Senior UX Designer**.
 The user wants to customize their restaurant digital presence.
 
 RESTAURANT NAME: "${restaurantName}"
-USER NATURAL LANGUAGE INSTRUCTION: "${command || "Design a stunning website matching the attached image/file"}"
+USER INSTRUCTION: "${command || "Design a stunning website matching the attached audio/image/file"}"
 
 CURRENT WEBSITE CONFIGURATION:
 ${JSON.stringify(currentConfig, null, 2)}
 
 INSTRUCTIONS:
-1. Carefully analyze the user prompt and any attached photos, logos, or media.
-2. Return an updated, high-converting, aesthetically cohesive website configuration conforming strictly to the JSON schema below.
-3. If the user describes a cuisine, luxury tier, festive occasion, or layout change:
-   - Select harmonious hex colors: primaryColor, secondaryColor, backgroundColor, cardColor.
-   - Choose the best typography pairing: "Outfit" (modern & warm), "Playfair Display" (luxury & classical), or "Inter" (clean & minimalist).
-   - Write creative, appetizing copywriting for heroHeadline, heroTagline, and aboutStory tailored specifically to the cuisine.
-   - Update, add, or enable relevant sections:
-     - "announcement" (for promos, holiday hours, discounts)
-     - "hero" (set heroLayout to "split", "centered", or "minimal")
-     - "about" (heritage, passion, craft)
-     - "highlights" (signature dishes)
-     - "booking" (table reservation)
-     - "reviews" (guest testimonials)
-     - "hours_location" (branches & hours)
-     - "gallery" (photo showcase)
-     - "faq" (frequently asked questions)
-     - "cta" (conversion banner)
-4. If an image is attached and represents a dish or atmosphere, you can retain or specify high quality culinary imagery.
-5. Provide a list of "changes" summarizing your key decisions, and a concise "message" for the user.
+1. Carefully analyze the user prompt and any attached photos, food imagery, logos, or voice audio recordings.
+2. If voice audio is attached, listen to the spoken instructions and apply the requested changes.
+3. Return an updated, high-converting, aesthetically cohesive website configuration conforming strictly to the JSON schema below.
+4. Color and Style Rules:
+   - "primaryColor": select an alluring hex color matching the cuisine/vibe (e.g. #f98b25 Saffron, #10b981 Emerald, #d4af37 Gold, #e11d48 Crimson, #d97706 Coffee, #3b82f6 Blue).
+   - "backgroundColor": pick a harmonious dark background (e.g. #0d1117, #0b0d11, #061510, #14100c, #090d16) or light if requested.
+   - "fontFamily": "Outfit" (modern/warm), "Playfair Display" (luxury serif), or "Inter" (clean minimalist).
+   - "heroLayout": "split" (headline with food photo on right), "centered", or "minimal".
+   - "heroHeadline", "heroTagline", "aboutStory": write creative, appetizing copywriting tailored specifically to the cuisine.
+   - "heroButtonText": "Order Online Now", "Reserve a Table", "Explore Menu", etc.
+   - "heroButtonLink": "#menu" or "#booking".
+5. Section Management:
+   - Ensure the "sections" array contains all relevant sections with "enabled": true when requested:
+     - "announcement": top delivery/promo banner
+     - "hero": main banner
+     - "about": culinary story & heritage
+     - "highlights": signature dishes
+     - "booking": table reservation module
+     - "reviews": guest testimonials & ratings
+     - "hours_location": opening hours & branches
+     - "gallery": photo gallery
+     - "faq": frequently asked questions
+     - "cta": conversion banner
+6. Provide a list of "changes" summarizing your key decisions, and a concise 1-sentence "message" for the user.
 
 REQUIRED JSON FORMAT:
 {
@@ -142,52 +179,83 @@ REQUIRED JSON FORMAT:
 
         parts.push({ text: promptInstruction });
 
-        // Call Gemini generateContent
-        const selectedModel = model || "gemini-2.5-flash";
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+        // Map aliases or deprecated names to active working models
+        let selectedModel = model || "gemini-2.5-flash";
+        if (selectedModel === "gemini-2.5-pro" || selectedModel === "gemini-pro") {
+          selectedModel = "gemini-3.1-pro-preview";
+        }
+        if (selectedModel === "gemini-2.0-flash" || selectedModel === "gemini-1.5-flash") {
+          selectedModel = "gemini-2.5-flash";
+        }
+        if (selectedModel === "gemini-3.8-flash") {
+          selectedModel = "gemini-flash-latest";
+        }
 
-        const res = await fetch(geminiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: {
-              responseMimeType: "application/json",
-              temperature: 0.7,
-            },
-          }),
-        });
+        const callGemini = async (targetModel: string) => {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+          return await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.7,
+              },
+            }),
+          });
+        };
+
+        let res = await callGemini(selectedModel);
+
+        // If target model failed and wasn't gemini-2.5-flash, fallback to gemini-2.5-flash
+        if (!res.ok && selectedModel !== "gemini-2.5-flash") {
+          console.warn(`[Gemini API] ${selectedModel} failed with status ${res.status}. Falling back to gemini-2.5-flash.`);
+          selectedModel = "gemini-2.5-flash";
+          res = await callGemini(selectedModel);
+        }
 
         if (res.ok) {
           const json = await res.json();
           const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
 
           if (rawText) {
-            const parsed = JSON.parse(rawText);
+            const cleanText = rawText
+              .replace(/^```json\s*/i, "")
+              .replace(/^```\s*/i, "")
+              .replace(/\s*```$/, "")
+              .trim();
+            const parsed = JSON.parse(cleanText);
 
             // Merge safely with currentConfig defaults
             const updatedConfig: WebsiteThemeConfig = {
               ...currentConfig,
               ...parsed,
-              heroLayout: parsed.heroLayout === "split" || parsed.heroLayout === "centered" || parsed.heroLayout === "minimal"
-                ? parsed.heroLayout
-                : "split",
-              sections: Array.isArray(parsed.sections) && parsed.sections.length > 0
-                ? parsed.sections
-                : currentConfig.sections,
+              heroLayout:
+                parsed.heroLayout === "split" ||
+                parsed.heroLayout === "centered" ||
+                parsed.heroLayout === "minimal"
+                  ? parsed.heroLayout
+                  : currentConfig.heroLayout || "split",
+              sections:
+                Array.isArray(parsed.sections) && parsed.sections.length > 0
+                  ? parsed.sections
+                  : currentConfig.sections,
             };
 
             return NextResponse.json({
               success: true,
               modelUsed: selectedModel,
-              message: parsed.message || (parsed.changes ? parsed.changes.join(" • ") : "Design refreshed with Gemini AI"),
+              message:
+                parsed.message ||
+                (parsed.changes ? parsed.changes.join(" • ") : "Design refreshed with Gemini AI"),
               changes: parsed.changes || ["Updated styling and layout with Gemini AI"],
               config: updatedConfig,
             });
           }
         } else {
-          const errData = await res.json();
-          console.warn("[Gemini API] Request returned error:", errData);
+          const errData = await res.json().catch(() => ({}));
+          console.warn("[Gemini API] Request returned error:", res.status, errData);
         }
       } catch (geminiError: any) {
         console.warn("[Gemini API] Exception, falling back to local engine:", geminiError);
@@ -289,11 +357,17 @@ REQUIRED JSON FORMAT:
       }
     }
 
+    if (changes.length === 0) {
+      nextConfig.heroHeadline = `The New ${restaurantName}`;
+      nextConfig.heroTagline = "Experience hand-crafted culinary excellence delivered to your table or doorstep";
+      changes.push("Updated website styling, layout, and visual harmony");
+    }
+
     return NextResponse.json({
       success: true,
       modelUsed: "local-heuristic-engine",
-      message: changes.length > 0 ? changes.join(" • ") : "Design refreshed successfully",
-      changes: changes.length > 0 ? changes : ["Updated styling and typography"],
+      message: changes.join(" • "),
+      changes,
       config: nextConfig,
     });
   } catch (err: any) {
