@@ -16,6 +16,7 @@ import {
   Sparkles,
   Star,
   BookOpen,
+  Calendar,
 } from "lucide-react";
 import { formatUZS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -31,8 +32,9 @@ import { Label } from "@/components/ui/label";
 
 export interface WebsiteSection {
   id: string;
-  type: "hero" | "about" | "highlights" | "hours_location" | "reviews" | "cta";
+  type: string;
   title: string;
+  subtitle?: string;
   content: string;
   enabled: boolean;
   meta?: Record<string, any>;
@@ -40,11 +42,15 @@ export interface WebsiteSection {
 
 export interface WebsiteThemeConfig {
   primaryColor?: string;
+  secondaryColor?: string;
+  backgroundColor?: string;
   fontFamily?: "Outfit" | "Inter" | "Playfair Display";
   heroTagline?: string;
   heroHeadline?: string;
   heroButtonText?: string;
+  heroImage?: string;
   aboutStory?: string;
+  aboutImage?: string;
   deliveryNotice?: string;
   sections?: WebsiteSection[];
 }
@@ -575,6 +581,115 @@ export default function PublicStorefrontPage({
           <div className="p-12 text-center text-gray-500 text-xs">
             No dishes found matching your selection.
           </div>
+        )}
+
+        {/* Table Reservation Section (if enabled) */}
+        {websiteConfig?.sections?.find((s) => s.type === "booking" && s.enabled) && (
+          <section id="booking" className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] rounded-2xl p-6 sm:p-8 shadow-xl max-w-3xl mx-auto space-y-6">
+            <div className="text-center space-y-1">
+              <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: brandColor }}>
+                Table Reservation
+              </span>
+              <h3 className="text-2xl font-bold font-[family-name:var(--font-display)] text-white">
+                Reserve a Table at {restaurant.name}
+              </h3>
+              <p className="text-xs text-gray-400">
+                Book for lunch, dinner, or special occasions with instant confirmation.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="text-gray-400 block mb-1">Guests</label>
+                <select className="w-full bg-[#0D1117] border border-white/10 rounded-xl p-2.5 text-white focus:outline-none">
+                  <option>2 Guests</option>
+                  <option>4 Guests</option>
+                  <option>6-8 Guests</option>
+                  <option>10+ Guests (Private VIP Room)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-gray-400 block mb-1">Date</label>
+                <input
+                  type="date"
+                  defaultValue={new Date().toISOString().split("T")[0]}
+                  className="w-full bg-[#0D1117] border border-white/10 rounded-xl p-2.5 text-white focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-gray-400 block mb-1">Time Slot</label>
+                <select className="w-full bg-[#0D1117] border border-white/10 rounded-xl p-2.5 text-white focus:outline-none">
+                  <option>13:00 - Lunch</option>
+                  <option>18:30 - Early Dinner</option>
+                  <option>20:00 - Evening Prime</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={() => toast.success("🎉 Table reservation requested! We will call/SMS to confirm shortly.")}
+              className="w-full py-3 rounded-xl font-bold text-xs text-white shadow-xl transition-transform hover:scale-[1.01] cursor-pointer"
+              style={{ backgroundColor: brandColor }}
+            >
+              Confirm Reservation
+            </button>
+          </section>
+        )}
+
+        {/* Customer Reviews Section (if enabled) */}
+        {websiteConfig?.sections?.find((s) => s.type === "reviews" && s.enabled) && (
+          <section className="space-y-4">
+            <div className="text-center space-y-1">
+              <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: brandColor }}>
+                Guest Reviews
+              </span>
+              <h3 className="text-xl font-bold font-[family-name:var(--font-display)] text-white">
+                Loved by Tashkent Diners
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { name: "Aziz Rakhimov", quote: "The wedding plov here is legitimately the best in Tashkent. Melt-in-your-mouth beef and fast service!", tag: "Verified Regular" },
+                { name: "Malika Yusupova", quote: "Crispy hot somsa right from the clay oven. The atmosphere is warm and authentic.", tag: "Foodie" },
+                { name: "Davron Karimov", quote: "Fast delivery in under 30 mins and food arrives steaming hot every time.", tag: "Verified Order" },
+              ].map((r, i) => (
+                <div key={i} className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] rounded-2xl p-5 space-y-3 shadow-lg">
+                  <div className="flex items-center gap-1 text-amber-400">
+                    {[...Array(5)].map((_, si) => (
+                      <Star key={si} className="w-3.5 h-3.5 fill-amber-400" />
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-300 italic">"{r.quote}"</p>
+                  <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px]">
+                    <span className="font-bold text-white">{r.name}</span>
+                    <span className="text-emerald-400 font-semibold">{r.tag}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* FAQ Section (if enabled) */}
+        {websiteConfig?.sections?.find((s) => s.type === "faq" && s.enabled) && (
+          <section className="max-w-2xl mx-auto space-y-4 bg-[#161b22] border border-[rgba(255,255,255,0.06)] rounded-2xl p-6 shadow-xl">
+            <div className="text-center space-y-1">
+              <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: brandColor }}>
+                Common Inquiries
+              </span>
+              <h3 className="text-lg font-bold text-white">Frequently Asked Questions</h3>
+            </div>
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-[#0D1117] border border-white/5">
+                <p className="font-bold text-white mb-1">Is all meat Halal certified?</p>
+                <p className="text-gray-400">Yes, 100% of our beef, lamb, and poultry are certified Halal from verified local farms.</p>
+              </div>
+              <div className="p-3 rounded-xl bg-[#0D1117] border border-white/5">
+                <p className="font-bold text-white mb-1">What is the delivery radius & speed?</p>
+                <p className="text-gray-400">We deliver across Tashkent city center in under 35 minutes using thermal bags.</p>
+              </div>
+            </div>
+          </section>
         )}
 
         {/* Location & Operating Hours Section */}

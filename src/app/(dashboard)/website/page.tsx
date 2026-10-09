@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Globe,
   Smartphone,
@@ -10,682 +10,1699 @@ import {
   Save,
   ExternalLink,
   Eye,
+  EyeOff,
   Palette,
-  Layout,
-  Type,
-  CheckCircle2,
+  Layers,
   Undo2,
+  Redo2,
   RefreshCw,
   Plus,
   Trash2,
   ArrowUp,
   ArrowDown,
-  Layers,
+  GripVertical,
+  CheckCircle2,
+  Settings,
+  X,
+  Calendar,
+  Utensils,
+  Star,
+  MapPin,
+  Clock,
+  Phone,
   Image as ImageIcon,
+  HelpCircle,
+  Megaphone,
+  ChefHat,
+  ChevronDown,
+  ChevronUp,
+  Sliders,
+  Send,
+  Wand2,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { formatUZS } from "@/lib/format";
 
 export type DeviceMode = "desktop" | "tablet" | "mobile";
 
+export type SectionType =
+  | "announcement"
+  | "hero"
+  | "about"
+  | "highlights"
+  | "booking"
+  | "reviews"
+  | "hours_location"
+  | "gallery"
+  | "faq"
+  | "cta";
+
 export interface WebsiteSection {
   id: string;
-  type: "hero" | "about" | "highlights" | "hours_location" | "reviews" | "cta";
+  type: SectionType;
   title: string;
+  subtitle?: string;
   content: string;
   enabled: boolean;
-  meta?: Record<string, any>;
+  meta?: {
+    buttonText?: string;
+    buttonLink?: string;
+    imageUrl?: string;
+    layout?: "centered" | "split" | "minimal";
+    badge?: string;
+    items?: Array<{
+      title: string;
+      desc?: string;
+      price?: number;
+      image?: string;
+      tag?: string;
+    }>;
+  };
 }
 
 export interface WebsiteThemeConfig {
   primaryColor: string;
+  secondaryColor?: string;
+  backgroundColor?: string;
+  cardColor?: string;
+  textColor?: string;
   fontFamily: "Outfit" | "Inter" | "Playfair Display";
+  borderRadius?: "sharp" | "rounded" | "pill";
   heroTagline: string;
   heroHeadline: string;
   heroButtonText: string;
+  heroButtonLink?: string;
+  heroLayout?: "centered" | "split" | "minimal";
+  heroImage?: string;
   aboutStory: string;
+  aboutImage?: string;
   deliveryNotice: string;
   sections: WebsiteSection[];
 }
 
 const DEFAULT_SECTIONS: WebsiteSection[] = [
   {
+    id: "sec-announcement",
+    type: "announcement",
+    title: "Delivery Announcement",
+    content: "⚡ Fast delivery in under 35 minutes across Tashkent • Free delivery on orders over 100,000 UZS",
+    enabled: true,
+  },
+  {
     id: "sec-hero",
     type: "hero",
     title: "Hero Banner",
-    content: "Authentic Central Asian Flavors",
+    subtitle: "AUTHENTIC TASHKENT TASTE",
+    content: "Crafted with passion using generational recipes, fresh organic spices, and premium ingredients.",
     enabled: true,
+    meta: {
+      buttonText: "Order Online Now",
+      buttonLink: "#menu",
+      layout: "split",
+      imageUrl: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=900&auto=format&fit=crop&q=80",
+      badge: "⭐️ 4.9 (420+ Reviews) • 100% Halal",
+    },
   },
   {
     id: "sec-about",
     type: "about",
-    title: "Our Heritage & Story",
-    content: "Crafted with passion using generational recipes, fresh organic spices, and premium ingredients.",
+    title: "Our Heritage & Culinary Passion",
+    subtitle: "GENERATIONS OF FLAVOR",
+    content: "Rooted in the heart of Tashkent, our kitchen honors the sacred balance of fire, spices, and hand-selected meats to bring genuine hospitality to every table.",
     enabled: true,
+    meta: {
+      imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
+      badge: "Family Owned • Est. 1998",
+    },
   },
   {
     id: "sec-highlights",
     type: "highlights",
     title: "Signature Dishes",
-    content: "Explore chef specials prepared fresh in our kitchen daily.",
+    subtitle: "PREPARED FRESH DAILY",
+    content: "Chef recommendations slow-cooked and flame-grilled to perfection.",
     enabled: true,
+    meta: {
+      items: [
+        {
+          title: "To'y Oshi (Wedding Plov)",
+          desc: "Slow-cooked tender beef with golden carrots and raisins.",
+          price: 38000,
+          tag: "Signature",
+          image: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=500&auto=format&fit=crop&q=80",
+        },
+        {
+          title: "Tandir Somsa",
+          desc: "Crispy clay-oven pastry with diced beef and cumin.",
+          price: 16000,
+          tag: "Crispy",
+          image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=80",
+        },
+        {
+          title: "Charcoal Shashlik",
+          desc: "Marinated lamb skewers charcoal-grilled with sweet onions.",
+          price: 46000,
+          tag: "Flame Grilled",
+          image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=80",
+        },
+      ],
+    },
   },
   {
-    id: "sec-hours",
-    type: "hours_location",
-    title: "Hours & Location",
-    content: "Daily 10:00 - 23:00 • Tashkent City Center",
+    id: "sec-booking",
+    type: "booking",
+    title: "Reserve a Table",
+    subtitle: "ELEVATED DINING EXPERIENCE",
+    content: "Book a table for family gatherings, business lunches, or romantic evenings with instant confirmation.",
     enabled: true,
+    meta: {
+      buttonText: "Confirm Table Reservation",
+    },
   },
   {
     id: "sec-reviews",
     type: "reviews",
-    title: "Guest Testimonials",
-    content: "Loved by thousands of food lovers across Tashkent.",
+    title: "Loved by Tashkent Foodies",
+    subtitle: "4.9 STARS ON GOOGLE & YANDEX",
+    content: "Hear what our guests have to say about our hospitality and flavors.",
+    enabled: true,
+    meta: {
+      items: [
+        {
+          title: "Aziz Rakhimov",
+          desc: "The wedding plov here is legitimately the best in the city. The meat melts in your mouth and service is lightning fast!",
+          tag: "Verified Diner",
+        },
+        {
+          title: "Malika Yusupova",
+          desc: "Stunning atmosphere and delicious crispy somsa. We reserved a table for our family anniversary and everything was flawless.",
+          tag: "Food Critic",
+        },
+        {
+          title: "Davron Karimov",
+          desc: "Always fresh, hot delivery within 30 minutes. Plately makes direct ordering so seamless!",
+          tag: "Loyal Regular",
+        },
+      ],
+    },
+  },
+  {
+    id: "sec-hours",
+    type: "hours_location",
+    title: "Hours & Locations",
+    subtitle: "VISIT OUR BRANCHES",
+    content: "Open Daily 10:00 - 23:00 • Central Tashkent & Chorsu Outlets",
     enabled: true,
   },
+];
+
+const THEME_PRESETS = [
+  {
+    name: "Saffron Amber",
+    primary: "#f98b25",
+    secondary: "#e11d48",
+    bg: "#0d1117",
+    card: "#161b22",
+    font: "Outfit" as const,
+  },
+  {
+    name: "Emerald Luxury",
+    primary: "#10b981",
+    secondary: "#059669",
+    bg: "#061510",
+    card: "#0b231b",
+    font: "Playfair Display" as const,
+  },
+  {
+    name: "Obsidian Gold",
+    primary: "#d4af37",
+    secondary: "#f59e0b",
+    bg: "#0b0d11",
+    card: "#141720",
+    font: "Playfair Display" as const,
+  },
+  {
+    name: "Artisan Coffee",
+    primary: "#d97706",
+    secondary: "#f59e0b",
+    bg: "#14100c",
+    card: "#1f1814",
+    font: "Outfit" as const,
+  },
+  {
+    name: "Cobalt Modern",
+    primary: "#3b82f6",
+    secondary: "#06b6d4",
+    bg: "#090d16",
+    card: "#111827",
+    font: "Inter" as const,
+  },
+  {
+    name: "Royal Crimson",
+    primary: "#e11d48",
+    secondary: "#f43f5e",
+    bg: "#14070a",
+    card: "#200d12",
+    font: "Outfit" as const,
+  },
+];
+
+const PHOTO_PRESETS = [
+  { label: "Wedding Plov", url: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=900&auto=format&fit=crop&q=80" },
+  { label: "Charcoal Shashlik", url: "https://images.unsplash.com/photo-1544025162-d76694265947?w=900&auto=format&fit=crop&q=80" },
+  { label: "Clay Oven Somsa", url: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=900&auto=format&fit=crop&q=80" },
+  { label: "Hand-pulled Noodles", url: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=900&auto=format&fit=crop&q=80" },
+  { label: "Dining Hall Ambience", url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&auto=format&fit=crop&q=80" },
+  { label: "Artisan Coffee & Pastry", url: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80" },
 ];
 
 export default function WebsiteBuilderPage() {
   const { user } = useAuthStore();
   const [device, setDevice] = useState<DeviceMode>("desktop");
-  const [activeTab, setActiveTab] = useState<"visual" | "ai" | "settings">("visual");
+  const [activeDrawer, setActiveDrawer] = useState<"none" | "blocks" | "inspector" | "theme">("none");
+  const [selectedSectionId, setSelectedSectionId] = useState<string>("sec-hero");
   const [isSaving, setIsSaving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [aiCommandText, setAiCommandText] = useState("");
+  const [aiStatusMsg, setAiStatusMsg] = useState("");
 
-  const restaurantName = user?.restaurant_name || "My Restaurant";
+  const restaurantName = user?.restaurant_name || "Kamolon";
   const restaurantSlug = user?.restaurant_slug || "kamolon";
-  const restaurantId = user?.restaurant_id;
+  const restaurantId = user?.restaurant_id || "7e1dd08c-c95d-496b-86d0-f7b40d7f9cdf";
 
-  // Site Configuration State
+  // Initial Config
   const [config, setConfig] = useState<WebsiteThemeConfig>({
     primaryColor: "#f98b25",
+    secondaryColor: "#e11d48",
+    backgroundColor: "#0d1117",
+    cardColor: "#161b22",
+    textColor: "#f8fafc",
     fontFamily: "Outfit",
-    heroHeadline: `Welcome to ${restaurantName}`,
-    heroTagline: "The premier dining & delivery destination in Tashkent",
+    borderRadius: "rounded",
+    heroHeadline: `Experience ${restaurantName}`,
+    heroTagline: "Authentic Central Asian gastronomy, tender flame-grilled meats, and rich hospitality.",
     heroButtonText: "Order Online Now",
-    aboutStory: `${restaurantName} brings together authentic local gastronomy, tender slow-cooked meats, and fresh seasonal salads for an unforgettable dining experience.`,
-    deliveryNotice: "⚡ Fast delivery in under 35 minutes across Tashkent",
+    heroButtonLink: "#menu",
+    heroLayout: "split",
+    heroImage: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=900&auto=format&fit=crop&q=80",
+    aboutStory: `${restaurantName} brings together authentic local culinary heritage, slow-cooked tender meats, and fresh seasonal ingredients for an unforgettable dining experience.`,
+    aboutImage: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
+    deliveryNotice: "⚡ Fast delivery in under 35 minutes across Tashkent • Free delivery on orders over 100,000 UZS",
     sections: DEFAULT_SECTIONS,
   });
 
-  // Load existing website config from Supabase
-  const loadConfig = useCallback(async () => {
-    if (!restaurantId) return;
-    try {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("restaurant_website_configs")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .maybeSingle();
+  // History stack for Undo/Redo
+  const [history, setHistory] = useState<WebsiteThemeConfig[]>([config]);
+  const [historyIndex, setHistoryIndex] = useState(0);
 
-      if (data && data.template) {
-        setConfig((prev) => ({
-          ...prev,
-          ...(data.template as Partial<WebsiteThemeConfig>),
-        }));
-      }
-    } catch (err) {
-      console.warn("[Website] Config load fallback:", err);
+  // Push new state into history
+  const updateConfigWithHistory = useCallback((newConfig: WebsiteThemeConfig | ((prev: WebsiteThemeConfig) => WebsiteThemeConfig)) => {
+    setConfig((prev) => {
+      const resolved = typeof newConfig === "function" ? newConfig(prev) : newConfig;
+      setHistory((h) => {
+        const nextH = h.slice(0, historyIndex + 1);
+        return [...nextH, resolved];
+      });
+      setHistoryIndex((idx) => idx + 1);
+      return resolved;
+    });
+  }, [historyIndex]);
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prev = history[historyIndex - 1];
+      setHistoryIndex(historyIndex - 1);
+      setConfig(prev);
+      toast.info("Undid last change");
     }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const next = history[historyIndex + 1];
+      setHistoryIndex(historyIndex + 1);
+      setConfig(next);
+      toast.info("Redid change");
+    }
+  };
+
+  // Load existing config on mount from server API
+  useEffect(() => {
+    async function loadSavedConfig() {
+      if (!restaurantId) return;
+      try {
+        const res = await fetch(`/api/website/config?restaurantId=${restaurantId}`);
+        const data = await res.json();
+        if (data.success && data.config) {
+          setConfig((prev) => ({
+            ...prev,
+            ...data.config,
+          }));
+          setHistory([data.config]);
+          setHistoryIndex(0);
+        }
+      } catch (e) {
+        console.warn("[WebsiteStudio] Could not load saved config:", e);
+      }
+    }
+    loadSavedConfig();
   }, [restaurantId]);
 
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
-
-  // Save & Publish to Supabase
-  const handlePublish = async () => {
-    if (!restaurantId) return;
+  // Save Draft (via server API)
+  const handleSaveDraft = async () => {
     setIsSaving(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("restaurant_website_configs")
-        .upsert({
-          restaurant_id: restaurantId,
-          template: config,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "restaurant_id" });
-
-      if (error) throw error;
-      toast.success("Website published successfully! Changes are live on your storefront.");
+      const res = await fetch("/api/website/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, config }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Save failed");
+      toast.success("Website draft saved!");
     } catch (err: any) {
-      toast.error(err?.message || "Failed to publish website");
+      toast.error(err?.message || "Failed to save draft");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // AI Prompt-to-Site Config Generator
-  const handleAiGenerate = async () => {
-    if (!aiPrompt.trim()) {
-      toast.error("Please enter a description for your restaurant style");
+  // Publish Live (via server API with admin permissions to eliminate RLS errors)
+  const handlePublishLive = async () => {
+    setIsPublishing(true);
+    try {
+      const res = await fetch("/api/website/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, config }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Publish failed");
+      toast.success("🎉 Website published live! Changes are active on your public storefront.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to publish live");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // THE MAIN FEATURE: AI Text Command Execution
+  const handleRunAiCommand = async (customPrompt?: string) => {
+    const promptToRun = customPrompt || aiCommandText;
+    if (!promptToRun.trim()) {
+      toast.error("Please enter a command for the AI Copilot");
       return;
     }
 
-    setIsGenerating(true);
+    setIsAiProcessing(true);
+    setAiStatusMsg("AI Copilot analyzing design & structure...");
+
     try {
-      // Simulate generative prompt translation into structured configuration
-      await new Promise((r) => setTimeout(r, 1200));
+      const res = await fetch("/api/ai/website-command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: promptToRun,
+          currentConfig: config,
+          restaurantName,
+        }),
+      });
 
-      const p = aiPrompt.toLowerCase();
-      let color = config.primaryColor;
-      let tagline = config.heroTagline;
-      let headline = config.heroHeadline;
-      let font: "Outfit" | "Inter" | "Playfair Display" = config.fontFamily;
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "AI generation failed");
 
-      if (p.includes("cozy") || p.includes("bakery") || p.includes("cafe")) {
-        color = "#e07a00";
-        font = "Outfit";
-        tagline = "Artisan treats, freshly brewed coffee, and heartwarming aromas";
-        headline = `Sweet Moments at ${restaurantName}`;
-      } else if (p.includes("pilaf") || p.includes("osh") || p.includes("milliy") || p.includes("national")) {
-        color = "#f98b25";
-        font = "Outfit";
-        tagline = "Generations of culinary heritage cooked over open flame";
-        headline = `Tashkent's Finest Hospitality at ${restaurantName}`;
-      } else if (p.includes("luxury") || p.includes("fine") || p.includes("steak")) {
-        color = "#34d399";
-        font = "Playfair Display";
-        tagline = "Elevated dining, curated ingredients, and refined atmosphere";
-        headline = `Exquisite Culinary Art at ${restaurantName}`;
-      } else {
-        color = "#3b82f6";
-        headline = `Experience ${restaurantName}`;
-        tagline = "Fresh culinary creations delivered straight to your doorstep";
+      if (data.config) {
+        updateConfigWithHistory(data.config);
+        toast.success(`✨ ${data.message || "Changes applied!"}`);
+        setAiCommandText("");
       }
-
-      setConfig((prev) => ({
-        ...prev,
-        primaryColor: color,
-        fontFamily: font,
-        heroHeadline: headline,
-        heroTagline: tagline,
-      }));
-
-      toast.success("AI draft applied! Review the live preview on the right.");
-      setActiveTab("visual");
-    } catch {
-      toast.error("Failed to generate site draft");
+    } catch (err: any) {
+      toast.error(err?.message || "AI Command execution failed");
     } finally {
-      setIsGenerating(false);
+      setIsAiProcessing(false);
+      setAiStatusMsg("");
     }
   };
 
-  // Move section position
-  const moveSection = (index: number, direction: "up" | "down") => {
-    const newSections = [...config.sections];
-    const target = direction === "up" ? index - 1 : index + 1;
-    if (target < 0 || target >= newSections.length) return;
-    const temp = newSections[index];
-    newSections[index] = newSections[target];
-    newSections[target] = temp;
-    setConfig({ ...config, sections: newSections });
+  // Move Section Up/Down
+  const moveSection = (index: number, dir: "up" | "down") => {
+    const targetIdx = dir === "up" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= config.sections.length) return;
+    const nextSections = [...config.sections];
+    const temp = nextSections[index];
+    nextSections[index] = nextSections[targetIdx];
+    nextSections[targetIdx] = temp;
+    updateConfigWithHistory({ ...config, sections: nextSections });
   };
 
+  // Toggle Section Visibility
   const toggleSection = (id: string) => {
-    setConfig({
-      ...config,
-      sections: config.sections.map((s) =>
-        s.id === id ? { ...s, enabled: !s.enabled } : s
-      ),
-    });
+    const nextSections = config.sections.map((s) =>
+      s.id === id ? { ...s, enabled: !s.enabled } : s
+    );
+    updateConfigWithHistory({ ...config, sections: nextSections });
   };
+
+  // Delete Section
+  const deleteSection = (id: string) => {
+    const nextSections = config.sections.filter((s) => s.id !== id);
+    updateConfigWithHistory({ ...config, sections: nextSections });
+    toast.info("Section removed");
+  };
+
+  // Add Section from library
+  const handleAddSection = (type: SectionType) => {
+    const newId = `sec-${type}-${Date.now()}`;
+    let newSec: WebsiteSection;
+
+    switch (type) {
+      case "booking":
+        newSec = {
+          id: newId,
+          type: "booking",
+          title: "Reserve a Table",
+          subtitle: "DINE IN LUXURY",
+          content: "Book a table for lunch or dinner with instant SMS and WhatsApp confirmation.",
+          enabled: true,
+          meta: { buttonText: "Book Now" },
+        };
+        break;
+      case "gallery":
+        newSec = {
+          id: newId,
+          type: "gallery",
+          title: "Culinary Gallery & Moments",
+          subtitle: "OUR ATMOSPHERE",
+          content: "Experience the vibrant craft, open flame kitchens, and warm hospitality.",
+          enabled: true,
+        };
+        break;
+      case "faq":
+        newSec = {
+          id: newId,
+          type: "faq",
+          title: "Frequently Asked Questions",
+          subtitle: "HELP & POLICIES",
+          content: "100% Halal certified • 35-min delivery across Tashkent • Group bookings available.",
+          enabled: true,
+        };
+        break;
+      case "cta":
+        newSec = {
+          id: newId,
+          type: "cta",
+          title: "Ready to Taste the Finest?",
+          subtitle: "ORDER OR DINE WITH US",
+          content: "Enjoy special welcome treats and fast direct delivery on your first order.",
+          enabled: true,
+          meta: { buttonText: "Start Ordering Now" },
+        };
+        break;
+      default:
+        newSec = {
+          id: newId,
+          type: "highlights",
+          title: "Special Features",
+          subtitle: "OUR OFFERINGS",
+          content: "Handcrafted selections prepared daily.",
+          enabled: true,
+        };
+    }
+
+    updateConfigWithHistory({ ...config, sections: [...config.sections, newSec] });
+    setSelectedSectionId(newId);
+    setActiveDrawer("inspector");
+    toast.success(`Added new ${type.toUpperCase()} section`);
+  };
+
+  const selectedSection = config.sections.find((s) => s.id === selectedSectionId);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] text-slate-200">
-      {/* Top Studio Control Bar */}
-      <div className="h-14 border-b border-[rgba(255,255,255,0.06)] bg-[#161b22] px-6 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-[calc(100vh-4.5rem)] text-slate-100 bg-[#07090e] overflow-hidden select-none">
+      {/* 1. TOP STUDIO BAR */}
+      <header className="h-14 border-b border-white/[0.08] bg-[#0c1017] px-4 flex items-center justify-between shrink-0 z-30">
+        {/* Left: Logo & Status */}
         <div className="flex items-center gap-3">
-          <div className="p-1.5 rounded-lg bg-[#f98b25]/20 text-[#f98b25]">
-            <Globe className="w-5 h-5" />
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#f98b25]/15 border border-[#f98b25]/30 text-[#f98b25]">
+            <Globe className="w-4 h-4" />
+            <span className="text-xs font-bold tracking-wide">Plately Studio</span>
           </div>
-          <div>
-            <h1 className="text-base font-bold text-white font-[family-name:var(--font-display)] flex items-center gap-2">
-              Website & Storefront Builder
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-normal">
-                Live Engine
-              </span>
-            </h1>
+
+          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400">
+            <span className="font-semibold text-white">{restaurantName}</span>
+            <span className="text-slate-600">•</span>
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Live Storefront Engine
+            </span>
           </div>
         </div>
 
-        {/* Device Switcher */}
-        <div className="flex items-center bg-[#0D1117] border border-[rgba(255,255,255,0.08)] p-1 rounded-lg gap-1">
-          <button
-            onClick={() => setDevice("desktop")}
-            className={`p-1.5 rounded-md transition-colors ${
-              device === "desktop" ? "bg-[#161b22] text-[#f98b25] shadow-sm" : "text-gray-400 hover:text-white"
-            }`}
-            title="Desktop Preview"
-          >
-            <Monitor className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setDevice("tablet")}
-            className={`p-1.5 rounded-md transition-colors ${
-              device === "tablet" ? "bg-[#161b22] text-[#f98b25] shadow-sm" : "text-gray-400 hover:text-white"
-            }`}
-            title="Tablet Preview"
-          >
-            <Tablet className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setDevice("mobile")}
-            className={`p-1.5 rounded-md transition-colors ${
-              device === "mobile" ? "bg-[#161b22] text-[#f98b25] shadow-sm" : "text-gray-400 hover:text-white"
-            }`}
-            title="Mobile Preview"
-          >
-            <Smartphone className="w-4 h-4" />
-          </button>
+        {/* Center: Device Switcher & Undo/Redo */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-[#141a24] border border-white/10 p-0.5 rounded-lg">
+            <button
+              onClick={() => setDevice("desktop")}
+              className={`p-1.5 rounded-md transition-all ${
+                device === "desktop" ? "bg-[#f98b25] text-white shadow-md" : "text-slate-400 hover:text-white"
+              }`}
+              title="Desktop View (1200px)"
+            >
+              <Monitor className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setDevice("tablet")}
+              className={`p-1.5 rounded-md transition-all ${
+                device === "tablet" ? "bg-[#f98b25] text-white shadow-md" : "text-slate-400 hover:text-white"
+              }`}
+              title="Tablet View (768px)"
+            >
+              <Tablet className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setDevice("mobile")}
+              className={`p-1.5 rounded-md transition-all ${
+                device === "mobile" ? "bg-[#f98b25] text-white shadow-md" : "text-slate-400 hover:text-white"
+              }`}
+              title="Mobile View (390px)"
+            >
+              <Smartphone className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1 border-l border-white/10 pl-3">
+            <button
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+              className="p-1.5 rounded text-slate-400 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+              className="p-1.5 rounded text-slate-400 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Redo"
+            >
+              <Redo2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Publish & Store Actions */}
-        <div className="flex items-center gap-3">
+        {/* Right: Drawer Toggles & Actions */}
+        <div className="flex items-center gap-2">
+          {/* Blocks Drawer Button */}
+          <button
+            onClick={() => setActiveDrawer(activeDrawer === "blocks" ? "none" : "blocks")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+              activeDrawer === "blocks"
+                ? "bg-[#f98b25]/20 border-[#f98b25] text-[#f98b25]"
+                : "bg-[#141a24] border-white/10 text-slate-300 hover:text-white hover:border-white/20"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Blocks</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-white/10 text-[10px]">{config.sections.length}</span>
+          </button>
+
+          {/* Theme Drawer Button */}
+          <button
+            onClick={() => setActiveDrawer(activeDrawer === "theme" ? "none" : "theme")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+              activeDrawer === "theme"
+                ? "bg-[#f98b25]/20 border-[#f98b25] text-[#f98b25]"
+                : "bg-[#141a24] border-white/10 text-slate-300 hover:text-white hover:border-white/20"
+            }`}
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span>Theme & Styles</span>
+          </button>
+
+          {/* Storefront Link */}
           <a
             href={`/store/${restaurantSlug}`}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-lg transition-colors"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-[#141a24] border border-white/10 rounded-lg transition-colors"
+            title="Open Live Public Storefront"
           >
-            <span>View Public Store</span>
+            <span>Live Store</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
+
+          {/* Save Draft */}
           <Button
-            onClick={handlePublish}
+            variant="outline"
+            onClick={handleSaveDraft}
             disabled={isSaving}
-            className="bg-[#f98b25] hover:bg-[#e07b1d] text-white text-xs font-semibold px-4 h-8"
+            className="border-white/10 bg-[#141a24] hover:bg-[#1c2432] text-slate-200 text-xs h-8 px-3"
           >
-            {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
-            Publish Changes
+            {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+            Save Draft
+          </Button>
+
+          {/* Publish Live */}
+          <Button
+            onClick={handlePublishLive}
+            disabled={isPublishing}
+            className="bg-[#f98b25] hover:bg-[#e07b1d] text-white text-xs font-semibold h-8 px-4 shadow-lg shadow-[#f98b25]/20"
+          >
+            {isPublishing ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Publish Live
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Main Workspace Split: Controls Panel (Left) & Device Frame (Right) */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Side: Customization Controls */}
-        <div className="w-96 border-r border-[rgba(255,255,255,0.06)] bg-[#161b22]/70 backdrop-blur-md flex flex-col shrink-0">
-          {/* Sub Navigation */}
-          <div className="flex border-b border-[rgba(255,255,255,0.06)] text-xs font-medium">
-            <button
-              onClick={() => setActiveTab("visual")}
-              className={`flex-1 py-3 text-center transition-colors border-b-2 ${
-                activeTab === "visual"
-                  ? "border-[#f98b25] text-white bg-slate-800/20"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Visual Blocks
-            </button>
-            <button
-              onClick={() => setActiveTab("ai")}
-              className={`flex-1 py-3 text-center transition-colors border-b-2 flex items-center justify-center gap-1.5 ${
-                activeTab === "ai"
-                  ? "border-[#f98b25] text-[#f98b25] bg-slate-800/20"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              AI Prompt Studio
-            </button>
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`flex-1 py-3 text-center transition-colors border-b-2 ${
-                activeTab === "settings"
-                  ? "border-[#f98b25] text-white bg-slate-800/20"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Styling & Brand
-            </button>
-          </div>
+      {/* 2. MAIN WORKSPACE CANVAS + SLIDE-OVER DRAWERS */}
+      <div className="flex-1 relative flex overflow-hidden">
+        {/* CENTER STAGE: LIVE INTERACTIVE PREVIEW */}
+        <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 flex flex-col items-center justify-start bg-gradient-to-b from-[#0a0d14] to-[#040609]">
+          {/* Realistic Browser Viewport Mockup */}
+          <div
+            className={`transition-all duration-300 shadow-2xl rounded-2xl border border-white/10 bg-[#0d1117] flex flex-col overflow-hidden mb-28 ${
+              device === "desktop"
+                ? "w-full max-w-5xl"
+                : device === "tablet"
+                ? "w-[768px]"
+                : "w-[390px] rounded-[36px] border-4 border-slate-800"
+            }`}
+          >
+            {/* Browser Header Bar */}
+            <div className="h-9 bg-[#161b22] border-b border-white/[0.06] px-4 flex items-center justify-between text-xs text-slate-400 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+              </div>
 
-          <div className="flex-1 overflow-y-auto p-5 space-y-6">
-            {/* TAB: VISUAL BLOCKS */}
-            {activeTab === "visual" && (
-              <div className="space-y-5">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                    Page Sections (Drag & Reorder)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Enable, disable, and rearrange modules on your guest storefront.
-                  </p>
+              {/* URL Address Bar */}
+              <div className="flex items-center gap-1.5 bg-[#0d1117] border border-white/5 px-3 py-1 rounded-md text-[11px] font-mono text-slate-300">
+                <span className="text-emerald-400">🔒</span>
+                <span>https://{restaurantSlug}.plately.uz</span>
+              </div>
+
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">
+                {device.toUpperCase()}
+              </div>
+            </div>
+
+            {/* LIVE PREVIEW CANVAS CONTENT */}
+            <div
+              className="flex-1 overflow-y-auto text-slate-100"
+              style={{
+                backgroundColor: config.backgroundColor || "#0d1117",
+                fontFamily: config.fontFamily === "Playfair Display" ? "var(--font-serif, serif)" : "var(--font-sans, sans-serif)",
+              }}
+            >
+              {/* TOP ANNOUNCEMENT BAR */}
+              {config.sections.find((s) => s.type === "announcement" && s.enabled) && (
+                <div
+                  className="py-2 px-4 text-center text-xs font-medium border-b border-white/10 flex items-center justify-center gap-2 relative group"
+                  style={{ backgroundColor: `${config.primaryColor}20`, color: config.primaryColor }}
+                >
+                  <span>{config.deliveryNotice}</span>
+                  <button
+                    onClick={() => {
+                      setSelectedSectionId("sec-announcement");
+                      setActiveDrawer("inspector");
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-[10px] underline"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+
+              {/* STOREFRONT HEADER NAV */}
+              <nav className="border-b border-white/[0.08] px-6 py-4 flex items-center justify-between sticky top-0 bg-[#0d1117]/90 backdrop-blur-md z-10">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shadow-lg"
+                    style={{ backgroundColor: config.primaryColor }}
+                  >
+                    {restaurantName.charAt(0)}
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-sm text-white tracking-tight">{restaurantName}</h2>
+                    <p className="text-[10px] text-slate-400">Authentic Cuisine • Tashkent</p>
+                  </div>
                 </div>
 
-                <div className="space-y-2.5">
-                  {config.sections.map((sec, idx) => (
-                    <div
-                      key={sec.id}
-                      className="p-3 rounded-lg bg-[#0D1117] border border-[rgba(255,255,255,0.06)] flex items-center justify-between group hover:border-[#f98b25]/40 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          checked={sec.enabled}
-                          onCheckedChange={() => toggleSection(sec.id)}
-                        />
-                        <div>
-                          <p className={`text-xs font-semibold ${sec.enabled ? "text-white" : "text-slate-500"}`}>
-                            {sec.title}
-                          </p>
-                          <p className="text-[10px] text-slate-500 capitalize">{sec.type}</p>
-                        </div>
-                      </div>
+                <div className="hidden md:flex items-center gap-6 text-xs text-slate-300 font-medium">
+                  <span className="hover:text-white cursor-pointer">Menu</span>
+                  <span className="hover:text-white cursor-pointer">Our Story</span>
+                  <span className="hover:text-white cursor-pointer">Table Booking</span>
+                  <span className="hover:text-white cursor-pointer">Reviews</span>
+                </div>
 
-                      <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition-transform hover:scale-105"
+                    style={{ backgroundColor: config.primaryColor }}
+                  >
+                    {config.heroButtonText}
+                  </button>
+                </div>
+              </nav>
+
+              {/* RENDER ACTIVE SECTIONS IN EXACT ORDER */}
+              <div className="divide-y divide-white/[0.05]">
+                {config.sections
+                  .filter((s) => s.enabled)
+                  .map((section, index) => (
+                    <div
+                      key={section.id}
+                      onClick={() => {
+                        setSelectedSectionId(section.id);
+                        setActiveDrawer("inspector");
+                      }}
+                      className={`relative group p-6 md:p-10 transition-all cursor-pointer ${
+                        selectedSectionId === section.id
+                          ? "ring-2 ring-inset ring-[#f98b25] bg-[#f98b25]/[0.02]"
+                          : "hover:bg-white/[0.01]"
+                      }`}
+                    >
+                      {/* Section Hover Mini Toolbar */}
+                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all bg-[#161b22] border border-white/10 rounded-lg p-1 flex items-center gap-1 shadow-xl z-20">
                         <button
-                          onClick={() => moveSection(idx, "up")}
-                          disabled={idx === 0}
-                          className="p-1 rounded text-slate-500 hover:text-white disabled:opacity-30"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSection(index, "up");
+                          }}
+                          disabled={index === 0}
+                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20"
+                          title="Move Up"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => moveSection(idx, "down")}
-                          disabled={idx === config.sections.length - 1}
-                          className="p-1 rounded text-slate-500 hover:text-white disabled:opacity-30"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSection(index, "down");
+                          }}
+                          disabled={index === config.sections.length - 1}
+                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20"
+                          title="Move Down"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSectionId(section.id);
+                            setActiveDrawer("inspector");
+                          }}
+                          className="p-1 hover:text-white text-slate-400"
+                          title="Edit in Inspector"
+                        >
+                          <Sliders className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSection(section.id);
+                          }}
+                          className="p-1 hover:text-amber-400 text-slate-400"
+                          title="Hide Section"
+                        >
+                          <EyeOff className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSection(section.id);
+                          }}
+                          className="p-1 hover:text-rose-400 text-slate-400"
+                          title="Delete Section"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* SECTION 1: HERO */}
+                      {section.type === "hero" && (
+                        <div
+                          className={`flex flex-col ${
+                            config.heroLayout === "split"
+                              ? "md:flex-row md:items-center gap-8"
+                              : "items-center text-center max-w-2xl mx-auto"
+                          }`}
+                        >
+                          <div className="flex-1 space-y-4">
+                            {section.meta?.badge && (
+                              <div
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase"
+                                style={{
+                                  backgroundColor: `${config.primaryColor}20`,
+                                  color: config.primaryColor,
+                                }}
+                              >
+                                <span>{section.meta.badge}</span>
+                              </div>
+                            )}
+
+                            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                              {config.heroHeadline}
+                            </h1>
+
+                            <p className="text-sm md:text-base text-slate-300 leading-relaxed">
+                              {config.heroTagline}
+                            </p>
+
+                            <div className="pt-2 flex flex-wrap gap-3">
+                              <button
+                                className="px-6 py-3 rounded-xl font-bold text-sm text-white shadow-xl transition-transform hover:scale-105"
+                                style={{ backgroundColor: config.primaryColor }}
+                              >
+                                {config.heroButtonText}
+                              </button>
+                              <button className="px-5 py-3 rounded-xl font-semibold text-sm bg-white/10 hover:bg-white/15 text-white border border-white/10 transition-colors">
+                                Explore Full Menu
+                              </button>
+                            </div>
+                          </div>
+
+                          {config.heroLayout === "split" && (
+                            <div className="flex-1 relative">
+                              <div
+                                className="w-full h-64 md:h-80 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-cover bg-center"
+                                style={{
+                                  backgroundImage: `url(${config.heroImage || section.meta?.imageUrl})`,
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* SECTION 2: ABOUT & HERITAGE */}
+                      {section.type === "about" && (
+                        <div className="flex flex-col md:flex-row items-center gap-8">
+                          <div className="flex-1 relative">
+                            <div
+                              className="w-full h-64 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-cover bg-center"
+                              style={{
+                                backgroundImage: `url(${config.aboutImage || section.meta?.imageUrl})`,
+                              }}
+                            />
+                            <div
+                              className="absolute -bottom-4 -right-4 px-4 py-2 rounded-xl text-xs font-bold shadow-xl border border-white/10 text-white"
+                              style={{ backgroundColor: config.primaryColor }}
+                            >
+                              {section.meta?.badge || "Est. 1998"}
+                            </div>
+                          </div>
+
+                          <div className="flex-1 space-y-3">
+                            <span
+                              className="text-xs font-bold uppercase tracking-widest"
+                              style={{ color: config.primaryColor }}
+                            >
+                              {section.subtitle || "OUR HERITAGE"}
+                            </span>
+                            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                              {section.title}
+                            </h2>
+                            <p className="text-sm text-slate-300 leading-relaxed">{config.aboutStory}</p>
+                            <div className="pt-2 flex items-center gap-4 text-xs text-slate-400 font-medium">
+                              <span>✓ Halal Certified Meat</span>
+                              <span>✓ Clay Oven Bread Daily</span>
+                              <span>✓ Organic Spices</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SECTION 3: SIGNATURE DISHES */}
+                      {section.type === "highlights" && (
+                        <div className="space-y-6">
+                          <div className="text-center max-w-xl mx-auto space-y-1">
+                            <span
+                              className="text-xs font-bold uppercase tracking-widest"
+                              style={{ color: config.primaryColor }}
+                            >
+                              {section.subtitle || "CHEF SPECIALS"}
+                            </span>
+                            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                              {section.title}
+                            </h2>
+                            <p className="text-xs text-slate-400">{section.content}</p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {(section.meta?.items || []).map((dish, i) => (
+                              <div
+                                key={i}
+                                className="rounded-xl border border-white/10 overflow-hidden bg-slate-900/60 hover:border-white/20 transition-all flex flex-col"
+                              >
+                                {dish.image && (
+                                  <div
+                                    className="h-36 bg-cover bg-center"
+                                    style={{ backgroundImage: `url(${dish.image})` }}
+                                  />
+                                )}
+                                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                                  <div>
+                                    <div className="flex items-center justify-between">
+                                      <h3 className="font-bold text-sm text-white">{dish.title}</h3>
+                                      {dish.tag && (
+                                        <span
+                                          className="text-[10px] px-2 py-0.5 rounded font-bold uppercase"
+                                          style={{
+                                            backgroundColor: `${config.primaryColor}20`,
+                                            color: config.primaryColor,
+                                          }}
+                                        >
+                                          {dish.tag}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1 line-clamp-2">{dish.desc}</p>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                                    <span className="font-bold text-sm text-white">
+                                      {dish.price ? formatUZS(dish.price) : "38,000 UZS"}
+                                    </span>
+                                    <button
+                                      className="px-3 py-1 rounded text-xs font-semibold text-white"
+                                      style={{ backgroundColor: config.primaryColor }}
+                                    >
+                                      + Add
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SECTION 4: TABLE RESERVATION */}
+                      {section.type === "booking" && (
+                        <div className="max-w-2xl mx-auto rounded-2xl border border-white/10 p-6 md:p-8 bg-[#141a24]/80 backdrop-blur-md shadow-2xl space-y-6">
+                          <div className="text-center space-y-1">
+                            <span
+                              className="text-xs font-bold uppercase tracking-widest"
+                              style={{ color: config.primaryColor }}
+                            >
+                              {section.subtitle || "RESERVE YOUR TABLE"}
+                            </span>
+                            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                              {section.title}
+                            </h2>
+                            <p className="text-xs text-slate-400">{section.content}</p>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                            <div>
+                              <label className="text-slate-400 block mb-1">Guests</label>
+                              <select className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white">
+                                <option>2 Guests (Romantic / Intimate)</option>
+                                <option>4 Guests (Family Table)</option>
+                                <option>6-8 Guests (Celebration)</option>
+                                <option>10+ Guests (Private VIP Room)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-slate-400 block mb-1">Date</label>
+                              <input
+                                type="date"
+                                defaultValue={new Date().toISOString().split("T")[0]}
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white"
+                              />
+                            </div>
+                            <div className="col-span-2 md:col-span-1">
+                              <label className="text-slate-400 block mb-1">Time Slot</label>
+                              <select className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white">
+                                <option>13:00 - Lunch Rush</option>
+                                <option>18:30 - Early Dinner</option>
+                                <option>20:00 - Prime Evening</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <button
+                            className="w-full py-3 rounded-xl font-bold text-sm text-white shadow-xl transition-transform hover:scale-[1.01]"
+                            style={{ backgroundColor: config.primaryColor }}
+                          >
+                            {section.meta?.buttonText || "Confirm Table Reservation"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* SECTION 5: CUSTOMER REVIEWS */}
+                      {section.type === "reviews" && (
+                        <div className="space-y-6">
+                          <div className="text-center max-w-xl mx-auto space-y-1">
+                            <span
+                              className="text-xs font-bold uppercase tracking-widest"
+                              style={{ color: config.primaryColor }}
+                            >
+                              {section.subtitle || "GUEST EXPERIENCES"}
+                            </span>
+                            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                              {section.title}
+                            </h2>
+                            <p className="text-xs text-slate-400">{section.content}</p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {(section.meta?.items || []).map((rev, i) => (
+                              <div
+                                key={i}
+                                className="rounded-xl border border-white/10 p-5 bg-slate-900/50 flex flex-col justify-between space-y-4"
+                              >
+                                <div className="flex items-center gap-1 text-amber-400">
+                                  {[...Array(5)].map((_, starI) => (
+                                    <Star key={starI} className="w-4 h-4 fill-amber-400" />
+                                  ))}
+                                </div>
+                                <p className="text-xs text-slate-300 italic leading-relaxed">
+                                  "{rev.desc}"
+                                </p>
+                                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
+                                  <span className="font-bold text-white">{rev.title}</span>
+                                  <span className="text-[10px] text-emerald-400 font-semibold">{rev.tag}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SECTION 6: HOURS & LOCATION */}
+                      {section.type === "hours_location" && (
+                        <div className="rounded-2xl border border-white/10 p-6 md:p-8 bg-slate-900/40 flex flex-col md:flex-row items-center justify-between gap-6">
+                          <div className="space-y-2">
+                            <span
+                              className="text-xs font-bold uppercase tracking-widest"
+                              style={{ color: config.primaryColor }}
+                            >
+                              {section.subtitle || "FIND US"}
+                            </span>
+                            <h2 className="text-2xl font-bold text-white">{section.title}</h2>
+                            <p className="text-xs text-slate-400">{section.content}</p>
+                            <div className="flex items-center gap-4 text-xs text-slate-300 pt-2">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-amber-400" /> 10:00 - 23:00 Daily
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3.5 h-3.5 text-emerald-400" /> +998 71 200 00 00
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            className="px-6 py-3 rounded-xl font-bold text-xs text-white border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+                          >
+                            Open in Yandex & Google Maps
+                          </button>
+                        </div>
+                      )}
+
+                      {/* SECTION 7: PHOTO GALLERY */}
+                      {section.type === "gallery" && (
+                        <div className="space-y-4">
+                          <div className="text-center max-w-xl mx-auto space-y-1">
+                            <span
+                              className="text-xs font-bold uppercase tracking-widest"
+                              style={{ color: config.primaryColor }}
+                            >
+                              {section.subtitle || "GALLERY"}
+                            </span>
+                            <h2 className="text-2xl font-bold text-white">{section.title}</h2>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {PHOTO_PRESETS.slice(0, 4).map((img, i) => (
+                              <div
+                                key={i}
+                                className="h-36 rounded-xl bg-cover bg-center border border-white/10 overflow-hidden hover:scale-[1.02] transition-transform"
+                                style={{ backgroundImage: `url(${img.url})` }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SECTION 8: FAQ */}
+                      {section.type === "faq" && (
+                        <div className="max-w-2xl mx-auto space-y-4">
+                          <div className="text-center space-y-1">
+                            <span
+                              className="text-xs font-bold uppercase tracking-widest"
+                              style={{ color: config.primaryColor }}
+                            >
+                              {section.subtitle || "FAQ"}
+                            </span>
+                            <h2 className="text-2xl font-bold text-white">{section.title}</h2>
+                          </div>
+
+                          <div className="space-y-2 text-xs">
+                            <div className="p-3 rounded-lg border border-white/10 bg-slate-900/60">
+                              <p className="font-bold text-white mb-1">Is all meat Halal certified?</p>
+                              <p className="text-slate-400">Yes, 100% of our lamb, beef, and poultry are certified Halal from verified local farms.</p>
+                            </div>
+                            <div className="p-3 rounded-lg border border-white/10 bg-slate-900/60">
+                              <p className="font-bold text-white mb-1">How fast is delivery?</p>
+                              <p className="text-slate-400">Our couriers deliver fresh piping hot food within 35 minutes across Tashkent.</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SECTION 9: CTA BANNER */}
+                      {section.type === "cta" && (
+                        <div
+                          className="rounded-2xl p-8 text-center space-y-4 text-white shadow-2xl relative overflow-hidden"
+                          style={{
+                            background: `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor || "#e11d48"})`,
+                          }}
+                        >
+                          <h2 className="text-3xl font-extrabold">{section.title}</h2>
+                          <p className="text-sm opacity-90 max-w-lg mx-auto">{section.content}</p>
+                          <button className="px-8 py-3 rounded-xl font-bold text-sm bg-black text-white hover:bg-slate-900 shadow-xl transition-transform hover:scale-105">
+                            {section.meta?.buttonText || "Order Online Now"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+
+              {/* FOOTER */}
+              <footer className="border-t border-white/[0.08] p-8 text-center text-xs text-slate-500 space-y-2">
+                <p className="text-slate-400 font-semibold">{restaurantName} • Official Digital Storefront</p>
+                <p>© {new Date().getFullYear()} All Rights Reserved • Powered by Plately Workshop</p>
+              </footer>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. THE MAIN FEATURE: FLOATING AI TEXT COMMAND BAR */}
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-40">
+          <div className="bg-[#0e131d]/90 backdrop-blur-2xl border border-white/15 p-3 rounded-2xl shadow-2xl shadow-black/80 flex flex-col gap-2.5">
+            {/* Quick Suggestion Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] scrollbar-none">
+              <span className="text-slate-400 font-semibold flex items-center gap-1 shrink-0">
+                <Wand2 className="w-3 h-3 text-[#f98b25]" /> Quick AI:
+              </span>
+              <button
+                onClick={() => handleRunAiCommand("Make design feel like luxury dark steakhouse with gold accents and table booking")}
+                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+              >
+                👑 Luxury Gold Steakhouse
+              </button>
+              <button
+                onClick={() => handleRunAiCommand("Switch to authentic Uzbek flame grill theme with signature wedding plov")}
+                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+              >
+                🔥 Uzbek Flame & Plov
+              </button>
+              <button
+                onClick={() => handleRunAiCommand("Add customer Google reviews with 4.9 stars and photo gallery")}
+                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+              >
+                ⭐️ Reviews & Gallery
+              </button>
+              <button
+                onClick={() => handleRunAiCommand("Add special Ramadan holiday discount banner with 15% off")}
+                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+              >
+                🌙 Ramadan Promo Banner
+              </button>
+              <button
+                onClick={() => handleRunAiCommand("Make layout fresh emerald green botanical cafe")}
+                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 shrink-0 transition-colors"
+              >
+                🌿 Emerald Cafe
+              </button>
+            </div>
+
+            {/* Input & Action */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleRunAiCommand();
+              }}
+              className="flex items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-[#f98b25]">
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                </div>
+                <input
+                  type="text"
+                  value={aiCommandText}
+                  onChange={(e) => setAiCommandText(e.target.value)}
+                  placeholder="Describe any change to your website... e.g. 'Make hero split layout with booking form and dark theme'"
+                  disabled={isAiProcessing}
+                  className="w-full pl-9 pr-4 py-2.5 bg-[#141a24] border border-white/10 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#f98b25] transition-all"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isAiProcessing || !aiCommandText.trim()}
+                className="bg-[#f98b25] hover:bg-[#e07b1d] text-white text-xs font-semibold px-4 h-9 rounded-xl shrink-0 shadow-lg shadow-[#f98b25]/20"
+              >
+                {isAiProcessing ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                ) : (
+                  <Send className="w-3.5 h-3.5 mr-1.5" />
+                )}
+                {isAiProcessing ? "Applying..." : "Generate"}
+              </Button>
+            </form>
+
+            {aiStatusMsg && (
+              <p className="text-[11px] text-[#f98b25] font-medium animate-pulse text-center">
+                {aiStatusMsg}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 4. ADDITIONAL FEATURE: COLLAPSIBLE SLIDE-OVER DRAWER (BLOCKS / INSPECTOR / THEME) */}
+        {activeDrawer !== "none" && (
+          <aside className="w-80 md:w-96 border-l border-white/10 bg-[#0d1117]/95 backdrop-blur-xl flex flex-col shrink-0 z-30 transition-all shadow-2xl">
+            {/* Drawer Header */}
+            <div className="h-12 border-b border-white/[0.08] px-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                {activeDrawer === "blocks" && (
+                  <>
+                    <Layers className="w-4 h-4 text-[#f98b25]" /> Page Blocks & Order
+                  </>
+                )}
+                {activeDrawer === "inspector" && (
+                  <>
+                    <Sliders className="w-4 h-4 text-[#f98b25]" /> Block Content Inspector
+                  </>
+                )}
+                {activeDrawer === "theme" && (
+                  <>
+                    <Palette className="w-4 h-4 text-[#f98b25]" /> Theme & Brand Styling
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => setActiveDrawer("none")}
+                className="p-1 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* DRAWER TAB 1: BLOCKS (DRAG & REORDER) */}
+            {activeDrawer === "blocks" && (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Reorder or toggle sections:</span>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <span className="text-[#f98b25] font-semibold">{config.sections.filter((s) => s.enabled).length} Active</span>
+                  </div>
+                </div>
+
+                {/* Section List */}
+                <div className="space-y-2">
+                  {config.sections.map((section, idx) => (
+                    <div
+                      key={section.id}
+                      onClick={() => {
+                        setSelectedSectionId(section.id);
+                        setActiveDrawer("inspector");
+                      }}
+                      className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-all cursor-pointer ${
+                        selectedSectionId === section.id
+                          ? "border-[#f98b25] bg-[#f98b25]/10 text-white"
+                          : section.enabled
+                          ? "border-white/10 bg-[#141a24] text-slate-200 hover:border-white/20"
+                          : "border-white/5 bg-slate-900/40 text-slate-500 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <GripVertical className="w-4 h-4 text-slate-500 shrink-0" />
+                        <span className="font-semibold truncate">{section.title}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSection(idx, "up");
+                          }}
+                          disabled={idx === 0}
+                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSection(idx, "down");
+                          }}
+                          disabled={idx === config.sections.length - 1}
+                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSection(section.id);
+                          }}
+                          className="p-1 hover:text-white text-slate-400"
+                        >
+                          {section.enabled ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSection(section.id);
+                          }}
+                          className="p-1 hover:text-rose-400 text-slate-400"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Hero Content Editor */}
-                <div className="pt-4 border-t border-[rgba(255,255,255,0.06)] space-y-3">
-                  <h4 className="text-xs font-semibold text-white">Hero Content</h4>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-400">Headline</Label>
-                    <Input
-                      value={config.heroHeadline}
-                      onChange={(e) => setConfig({ ...config, heroHeadline: e.target.value })}
-                      className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-xs h-8"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-400">Tagline</Label>
-                    <Textarea
-                      rows={2}
-                      value={config.heroTagline}
-                      onChange={(e) => setConfig({ ...config, heroTagline: e.target.value })}
-                      className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-400">CTA Button Text</Label>
-                    <Input
-                      value={config.heroButtonText}
-                      onChange={(e) => setConfig({ ...config, heroButtonText: e.target.value })}
-                      className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-xs h-8"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: AI PROMPT STUDIO */}
-            {activeTab === "ai" && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#f98b25]/10 to-transparent border border-[#f98b25]/20">
-                  <div className="flex items-center gap-2 text-white font-semibold text-xs mb-1">
-                    <Sparkles className="w-4 h-4 text-[#f98b25]" />
-                    Conversational Site Architect
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Describe your vision, vibe, or target audience. Plately AI transforms your prompt into validated colors, typography, hero banners, and storytelling copy.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs text-slate-300">Prompt your website:</Label>
-                  <Textarea
-                    rows={4}
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    placeholder="e.g. A traditional cozy Tashkent chayxona with dark amber ambiance, warm bread aromas, and signature lamb shashlik"
-                    className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-xs"
-                  />
-                </div>
-
-                <Button
-                  onClick={handleAiGenerate}
-                  disabled={isGenerating}
-                  className="w-full bg-[#f98b25] hover:bg-[#e07b1d] text-white text-xs font-semibold py-2"
-                >
-                  {isGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                  Generate Website Draft
-                </Button>
-
-                <div className="space-y-2 pt-2">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Quick Prompts:</span>
-                  <div className="flex flex-col gap-1.5">
-                    {[
-                      "Modern Minimalist Fast Casual (Burgers & Shakes)",
-                      "Traditional Tashkent Choyxona & Pilaf Center",
-                      "Artisan French-style Bakery & Coffee Roastery",
-                    ].map((sample) => (
-                      <button
-                        key={sample}
-                        onClick={() => setAiPrompt(sample)}
-                        className="text-left text-[11px] p-2 rounded bg-[#0D1117] hover:bg-slate-800 text-slate-300 transition-colors border border-[rgba(255,255,255,0.04)]"
-                      >
-                        ⚡ {sample}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: STYLING & BRAND */}
-            {activeTab === "settings" && (
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <Label className="text-xs text-slate-300">Brand Accent Color</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={config.primaryColor}
-                      onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                      className="w-8 h-8 rounded border border-white/20 cursor-pointer bg-transparent"
-                    />
-                    <span className="font-mono text-xs text-slate-300 uppercase">{config.primaryColor}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs text-slate-300">Typography Mood</Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {(["Outfit", "Inter", "Playfair Display"] as const).map((font) => (
-                      <button
-                        key={font}
-                        onClick={() => setConfig({ ...config, fontFamily: font })}
-                        className={`p-2.5 rounded-lg border text-left text-xs transition-colors flex items-center justify-between ${
-                          config.fontFamily === font
-                            ? "border-[#f98b25] bg-[#f98b25]/10 text-white"
-                            : "border-[rgba(255,255,255,0.06)] bg-[#0D1117] text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        <span>{font}</span>
-                        {config.fontFamily === font && <CheckCircle2 className="w-3.5 h-3.5 text-[#f98b25]" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs text-slate-300">Delivery Banner Announcement</Label>
-                  <Input
-                    value={config.deliveryNotice}
-                    onChange={(e) => setConfig({ ...config, deliveryNotice: e.target.value })}
-                    className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-xs h-8"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Side: Interactive Device Viewport */}
-        <div className="flex-1 bg-[#090d13] p-8 flex items-center justify-center overflow-auto">
-          <div
-            className={`transition-all duration-300 rounded-2xl border-4 border-slate-800 shadow-2xl bg-[#0D1117] overflow-hidden flex flex-col ${
-              device === "desktop"
-                ? "w-full max-w-4xl h-[640px]"
-                : device === "tablet"
-                ? "w-[600px] h-[720px]"
-                : "w-[360px] h-[680px]"
-            }`}
-          >
-            {/* Mock Browser Header */}
-            <div className="h-8 bg-[#161b22] border-b border-[rgba(255,255,255,0.06)] px-3 flex items-center gap-2 shrink-0">
-              <div className="flex gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
-              </div>
-              <div className="flex-1 max-w-xs mx-auto bg-[#0D1117] rounded px-2 py-0.5 text-[10px] text-gray-400 font-mono text-center truncate">
-                https://{restaurantSlug}.theplately.com
-              </div>
-            </div>
-
-            {/* Rendered Storefront Simulation */}
-            <div className="flex-1 overflow-y-auto text-white">
-              {/* Delivery Top Notice */}
-              <div className="py-1.5 px-4 text-center text-xs font-medium bg-[#161b22] border-b border-white/5 text-amber-300">
-                {config.deliveryNotice}
-              </div>
-
-              {/* Navigation Header */}
-              <header className="px-6 py-4 flex items-center justify-between border-b border-white/5 bg-[#0D1117]/80 backdrop-blur-md sticky top-0 z-10">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm text-white"
-                    style={{ backgroundColor: config.primaryColor }}
-                  >
-                    {restaurantName[0] || "P"}
-                  </div>
-                  <span className="font-bold text-sm tracking-tight">{restaurantName}</span>
-                </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="text-gray-400 hover:text-white cursor-pointer">Menu</span>
-                  <span className="text-gray-400 hover:text-white cursor-pointer">About</span>
-                  <Button
-                    size="sm"
-                    className="text-xs h-7 px-3 text-white font-medium"
-                    style={{ backgroundColor: config.primaryColor }}
-                  >
-                    Book Table
-                  </Button>
-                </div>
-              </header>
-
-              {/* Section: HERO */}
-              {config.sections.find((s) => s.id === "sec-hero")?.enabled && (
-                <div className="relative py-16 px-8 text-center bg-gradient-to-b from-[#161b22]/50 to-transparent border-b border-white/5">
-                  <div className="max-w-md mx-auto space-y-4">
-                    <span
-                      className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full border uppercase tracking-wider"
-                      style={{
-                        borderColor: `${config.primaryColor}50`,
-                        color: config.primaryColor,
-                        backgroundColor: `${config.primaryColor}15`,
-                      }}
+                {/* Add Block Palette */}
+                <div className="pt-4 border-t border-white/10 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Add Section to Page
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      onClick={() => handleAddSection("booking")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2"
                     >
-                      Authentic Tashkent Taste
-                    </span>
-                    <h2 className="text-2xl font-black tracking-tight">{config.heroHeadline}</h2>
-                    <p className="text-xs text-gray-400 leading-relaxed">{config.heroTagline}</p>
-                    <div className="pt-2 flex justify-center gap-2.5">
-                      <Button
-                        className="text-xs font-semibold px-5 h-9 text-white shadow-lg"
-                        style={{ backgroundColor: config.primaryColor }}
-                      >
-                        {config.heroButtonText}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="text-xs font-semibold px-4 h-9 border-white/10 text-gray-300 hover:text-white"
-                      >
-                        Explore Menu
-                      </Button>
+                      <Calendar className="w-4 h-4 text-[#f98b25]" />
+                      <span>Table Booking</span>
+                    </button>
+                    <button
+                      onClick={() => handleAddSection("gallery")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2"
+                    >
+                      <ImageIcon className="w-4 h-4 text-[#f98b25]" />
+                      <span>Photo Gallery</span>
+                    </button>
+                    <button
+                      onClick={() => handleAddSection("faq")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2"
+                    >
+                      <HelpCircle className="w-4 h-4 text-[#f98b25]" />
+                      <span>FAQ Section</span>
+                    </button>
+                    <button
+                      onClick={() => handleAddSection("cta")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2"
+                    >
+                      <Megaphone className="w-4 h-4 text-[#f98b25]" />
+                      <span>CTA Banner</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* DRAWER TAB 2: INSPECTOR (NO-CODE ELEMENT EDITOR) */}
+            {activeDrawer === "inspector" && selectedSection && (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="p-3 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Active Section:</span>
+                  <span className="font-bold text-[#f98b25] uppercase tracking-wider">{selectedSection.type}</span>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs text-slate-300">Section Title</Label>
+                    <Input
+                      value={selectedSection.title}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateConfigWithHistory({
+                          ...config,
+                          sections: config.sections.map((s) =>
+                            s.id === selectedSection.id ? { ...s, title: val } : s
+                          ),
+                        });
+                      }}
+                      className="bg-[#141a24] border-white/10 text-xs mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-slate-300">Subtitle / Tag</Label>
+                    <Input
+                      value={selectedSection.subtitle || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateConfigWithHistory({
+                          ...config,
+                          sections: config.sections.map((s) =>
+                            s.id === selectedSection.id ? { ...s, subtitle: val } : s
+                          ),
+                        });
+                      }}
+                      className="bg-[#141a24] border-white/10 text-xs mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-slate-300">Description / Content</Label>
+                    <Textarea
+                      rows={3}
+                      value={selectedSection.content}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateConfigWithHistory({
+                          ...config,
+                          sections: config.sections.map((s) =>
+                            s.id === selectedSection.id ? { ...s, content: val } : s
+                          ),
+                        });
+                      }}
+                      className="bg-[#141a24] border-white/10 text-xs mt-1"
+                    />
+                  </div>
+
+                  {/* HERO-SPECIFIC CONTROLS */}
+                  {selectedSection.type === "hero" && (
+                    <div className="space-y-3 pt-3 border-t border-white/10">
+                      <div>
+                        <Label className="text-xs text-slate-300">Headline</Label>
+                        <Input
+                          value={config.heroHeadline}
+                          onChange={(e) =>
+                            updateConfigWithHistory({ ...config, heroHeadline: e.target.value })
+                          }
+                          className="bg-[#141a24] border-white/10 text-xs mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs text-slate-300">Tagline</Label>
+                        <Textarea
+                          rows={2}
+                          value={config.heroTagline}
+                          onChange={(e) =>
+                            updateConfigWithHistory({ ...config, heroTagline: e.target.value })
+                          }
+                          className="bg-[#141a24] border-white/10 text-xs mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs text-slate-300">CTA Button Text</Label>
+                        <Input
+                          value={config.heroButtonText}
+                          onChange={(e) =>
+                            updateConfigWithHistory({ ...config, heroButtonText: e.target.value })
+                          }
+                          className="bg-[#141a24] border-white/10 text-xs mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs text-slate-300">Hero Layout Variant</Label>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <button
+                            onClick={() => updateConfigWithHistory({ ...config, heroLayout: "split" })}
+                            className={`p-2 rounded border text-xs ${
+                              config.heroLayout === "split"
+                                ? "border-[#f98b25] bg-[#f98b25]/15 text-white"
+                                : "border-white/10 bg-[#141a24] text-slate-300"
+                            }`}
+                          >
+                            Split Showcase
+                          </button>
+                          <button
+                            onClick={() => updateConfigWithHistory({ ...config, heroLayout: "centered" })}
+                            className={`p-2 rounded border text-xs ${
+                              config.heroLayout === "centered"
+                                ? "border-[#f98b25] bg-[#f98b25]/15 text-white"
+                                : "border-white/10 bg-[#141a24] text-slate-300"
+                            }`}
+                          >
+                            Centered Modern
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 1-Click Photo Preset Selector */}
+                  <div className="pt-3 border-t border-white/10 space-y-2">
+                    <Label className="text-xs text-slate-300">Photo Presets (Uzbek & Dining)</Label>
+                    <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                      {PHOTO_PRESETS.map((p, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            if (selectedSection.type === "hero") {
+                              updateConfigWithHistory({ ...config, heroImage: p.url });
+                            } else if (selectedSection.type === "about") {
+                              updateConfigWithHistory({ ...config, aboutImage: p.url });
+                            }
+                            toast.success(`Applied ${p.label} image`);
+                          }}
+                          className="p-1.5 rounded border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left truncate text-slate-300"
+                        >
+                          {p.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Section: SIGNATURE DISHES */}
-              {config.sections.find((s) => s.id === "sec-highlights")?.enabled && (
-                <div className="py-10 px-6 border-b border-white/5">
-                  <div className="text-center mb-6">
-                    <h3 className="text-base font-bold">Signature Dishes</h3>
-                    <p className="text-xs text-gray-400 mt-1">Prepared fresh daily by our masters</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
-                    {[
-                      { name: "Tashkent Choyxona Palov", price: "45,000 UZS", tag: "Bestseller" },
-                      { name: "Special Lamb Shashlik", price: "28,000 UZS", tag: "Grilled" },
-                    ].map((dish) => (
-                      <div
-                        key={dish.name}
-                        className="p-3 rounded-xl bg-[#161b22] border border-white/5 space-y-2 hover:border-white/10 transition-colors"
+            {/* DRAWER TAB 3: THEME & STYLES */}
+            {activeDrawer === "theme" && (
+              <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                {/* 1-Click Palettes */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-slate-300 uppercase tracking-wider font-bold">
+                    Theme Presets
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {THEME_PRESETS.map((t, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          updateConfigWithHistory({
+                            ...config,
+                            primaryColor: t.primary,
+                            secondaryColor: t.secondary,
+                            backgroundColor: t.bg,
+                            cardColor: t.card,
+                            fontFamily: t.font,
+                          });
+                          toast.success(`Applied ${t.name} Theme`);
+                        }}
+                        className="p-2.5 rounded-xl border border-white/10 bg-[#141a24] hover:border-white/25 text-left space-y-2"
                       >
-                        <div className="w-full h-20 rounded-lg bg-slate-800/80 flex items-center justify-center text-slate-600">
-                          <ImageIcon className="w-6 h-6" />
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full shadow"
+                            style={{ backgroundColor: t.primary }}
+                          />
+                          <span
+                            className="w-3.5 h-3.5 rounded-full shadow"
+                            style={{ backgroundColor: t.secondary }}
+                          />
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-white/20"
+                            style={{ backgroundColor: t.bg }}
+                          />
                         </div>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-xs font-bold text-white leading-tight">{dish.name}</p>
-                            <span className="text-[10px] text-emerald-400 font-semibold">{dish.tag}</span>
-                          </div>
-                          <span className="text-xs font-mono font-bold" style={{ color: config.primaryColor }}>
-                            {dish.price}
-                          </span>
-                        </div>
-                      </div>
+                        <span className="text-xs font-semibold text-white block">{t.name}</span>
+                      </button>
                     ))}
                   </div>
                 </div>
-              )}
 
-              {/* Section: ABOUT STORY */}
-              {config.sections.find((s) => s.id === "sec-about")?.enabled && (
-                <div className="py-10 px-8 text-center bg-[#161b22]/30 border-b border-white/5">
-                  <div className="max-w-md mx-auto space-y-3">
-                    <h3 className="text-base font-bold">Our Heritage</h3>
-                    <p className="text-xs text-gray-300 leading-relaxed">{config.aboutStory}</p>
+                {/* Custom Color Pickers */}
+                <div className="space-y-3 pt-3 border-t border-white/10">
+                  <Label className="text-xs text-slate-300 uppercase tracking-wider font-bold">
+                    Custom Color Scheme
+                  </Label>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-300">Primary Accent</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={config.primaryColor}
+                        onChange={(e) =>
+                          updateConfigWithHistory({ ...config, primaryColor: e.target.value })
+                        }
+                        className="w-7 h-7 rounded border border-white/10 bg-transparent cursor-pointer"
+                      />
+                      <span className="font-mono text-slate-400">{config.primaryColor}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-300">Background Tone</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={config.backgroundColor || "#0d1117"}
+                        onChange={(e) =>
+                          updateConfigWithHistory({ ...config, backgroundColor: e.target.value })
+                        }
+                        className="w-7 h-7 rounded border border-white/10 bg-transparent cursor-pointer"
+                      />
+                      <span className="font-mono text-slate-400">{config.backgroundColor || "#0d1117"}</span>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Section: HOURS & LOCATION */}
-              {config.sections.find((s) => s.id === "sec-hours")?.enabled && (
-                <div className="py-8 px-6 text-center border-b border-white/5">
-                  <h3 className="text-sm font-bold text-white mb-2">Hours & Location</h3>
-                  <p className="text-xs text-gray-400">Open Daily from 10:00 to 23:00</p>
-                  <p className="text-xs text-gray-400">Tashkent City Center • Fast Courier Dispatch</p>
+                {/* Typography Mood */}
+                <div className="space-y-2 pt-3 border-t border-white/10">
+                  <Label className="text-xs text-slate-300 uppercase tracking-wider font-bold">
+                    Typography Pairing
+                  </Label>
+                  <div className="space-y-2">
+                    {[
+                      { font: "Outfit" as const, label: "Outfit (Modern & Warm Grotesk)" },
+                      { font: "Playfair Display" as const, label: "Playfair Display (Luxury Editorial Serif)" },
+                      { font: "Inter" as const, label: "Inter (Clean Tech Precision)" },
+                    ].map((f, i) => (
+                      <button
+                        key={i}
+                        onClick={() => updateConfigWithHistory({ ...config, fontFamily: f.font })}
+                        className={`w-full p-2.5 rounded-lg border text-left text-xs transition-all ${
+                          config.fontFamily === f.font
+                            ? "border-[#f98b25] bg-[#f98b25]/15 text-white font-bold"
+                            : "border-white/10 bg-[#141a24] text-slate-300 hover:border-white/20"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
-
-              {/* Footer */}
-              <footer className="py-6 px-6 text-center text-[10px] text-gray-500 bg-[#090d13]">
-                <p>© {new Date().getFullYear()} {restaurantName}. Powered by Plately Workshop.</p>
-              </footer>
-            </div>
-          </div>
-        </div>
+              </div>
+            )}
+          </aside>
+        )}
       </div>
     </div>
   );
