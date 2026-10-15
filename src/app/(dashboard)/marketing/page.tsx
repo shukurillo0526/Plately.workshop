@@ -182,7 +182,7 @@ export default function MarketingPage() {
   const [newValue, setNewValue] = useState(15);
   const [newMinOrder, setNewMinOrder] = useState(60000);
 
-  const restaurantId = user?.restaurant_id || "7e1dd08c-c95d-496b-86d0-f7b40d7f9cdf";
+  const restaurantId = user?.restaurant_id;
 
   // Load Promotions
   const loadPromotions = useCallback(async () => {
@@ -200,27 +200,31 @@ export default function MarketingPage() {
         .eq("restaurant_id", restaurantId)
         .order("created_at", { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        setPromos(
-          data.map((p) => ({
-            id: p.id,
-            code: p.code,
-            title: p.title,
-            discountType: p.discount_type,
-            discountValue: Number(p.discount_value),
-            minOrderValue: Number(p.min_order_value) || 0,
-            usageCount: p.usage_count || 0,
-            usageLimit: p.usage_limit || null,
-            isActive: p.is_active ?? true,
-            expiresAt: p.expires_at || null,
-          }))
-        );
+      if (!error && data) {
+        if (data.length > 0) {
+          setPromos(
+            data.map((p) => ({
+              id: p.id,
+              code: p.code,
+              title: p.title,
+              discountType: p.discount_type,
+              discountValue: Number(p.discount_value),
+              minOrderValue: Number(p.min_order_value) || 0,
+              usageCount: p.usage_count || 0,
+              usageLimit: p.usage_limit || null,
+              isActive: p.is_active ?? true,
+              expiresAt: p.expires_at || null,
+            }))
+          );
+        } else {
+          setPromos([]);
+        }
       } else {
-        setPromos(SAMPLE_PROMOS);
+        setPromos([]);
       }
     } catch (err) {
       console.warn("[Marketing] Error loading promotions:", err);
-      setPromos(SAMPLE_PROMOS);
+      setPromos([]);
     } finally {
       setIsLoading(false);
     }

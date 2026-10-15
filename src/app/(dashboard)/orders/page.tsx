@@ -65,7 +65,7 @@ export default function OrdersPage() {
 
       if (error) {
         console.warn('[OrdersPage] Supabase query failed:', error.message);
-        setOrders(SAMPLE_ORDERS);
+        setOrders([]);
       } else if (data && data.length > 0) {
         setOrders(
           data.map((row) => {
@@ -85,11 +85,11 @@ export default function OrdersPage() {
           })
         );
       } else {
-        setOrders(SAMPLE_ORDERS);
+        setOrders([]);
       }
     } catch (err) {
       console.error('[OrdersPage] Error:', err);
-      setOrders(SAMPLE_ORDERS);
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +97,30 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+
+    if (!restaurantId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`orders-realtime-${restaurantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchOrders, restaurantId]);
 
   // Filter and sort logic
   const filteredOrders = useMemo(() => {

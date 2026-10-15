@@ -131,20 +131,24 @@ export default function DispatchPage() {
         .eq("restaurant_id", restaurantId)
         .order("created_at", { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        setDeliveries(
-          data.map((row) => ({
-            id: row.id,
-            orderNumber: row.orders?.order_number || `ORD-${row.order_id?.slice(0, 5) || "0000"}`,
-            customerName: row.driver_name ? `Customer for ${row.driver_name}` : "Guest Customer",
-            dropoffAddress: row.orders?.delivery_address || "Tashkent Address",
-            driver: row.driver_name ? `${row.driver_name} (${row.driver_phone || "Noor"})` : "Assigning Courier...",
-            status: row.status as DeliveryStatus,
-            etaMins: 20,
-            fee: row.fee || calculateNoorFee(4.5),
-            trackingUrl: row.tracking_url,
-          }))
-        );
+      if (!error && data) {
+        if (data.length > 0) {
+          setDeliveries(
+            data.map((row) => ({
+              id: row.id,
+              orderNumber: row.orders?.order_number || `ORD-${row.order_id?.slice(0, 5) || "0000"}`,
+              customerName: row.driver_name ? `Customer for ${row.driver_name}` : "Guest Customer",
+              dropoffAddress: row.orders?.delivery_address || "Tashkent Address",
+              driver: row.driver_name ? `${row.driver_name} (${row.driver_phone || "Noor"})` : "Assigning Courier...",
+              status: row.status as DeliveryStatus,
+              etaMins: 20,
+              fee: row.fee || calculateNoorFee(4.5),
+              trackingUrl: row.tracking_url,
+            }))
+          );
+        } else {
+          setDeliveries([]);
+        }
       }
     } catch (err) {
       console.warn("[Dispatch] Load error:", err);
@@ -201,12 +205,8 @@ export default function DispatchPage() {
 
     setIsDispatching(true);
     try {
-      const quote = createNoorQuote({
-        pickupLat: 41.2995,
-        pickupLng: 69.2401,
-        dropoffLat: 41.3111,
-        dropoffLng: 69.2797,
-      });
+      const fee = calculateNoorFee(manualDistance);
+      const etaMins = Math.round(15 + manualDistance * 3);
 
       const dispatchResult = await dispatchNoorDelivery({
         order_id: crypto.randomUUID(),
@@ -235,8 +235,8 @@ export default function DispatchPage() {
         dropoffAddress: manualAddress.trim(),
         driver: "Noor Tech Courier Assigned",
         status: "driver_assigned",
-        etaMins: quote.eta_minutes,
-        fee: dispatchResult.fee,
+        etaMins,
+        fee,
         trackingUrl: dispatchResult.tracking_url,
       };
 
@@ -282,7 +282,7 @@ export default function DispatchPage() {
       toast.success(
         `Courier dispatched via Noor! ID: ${dispatchResult.external_delivery_id}`,
         {
-          description: `Fee: ${formatUZS(dispatchResult.fee)} • ETA: ${quote.eta_minutes}m`,
+          description: `Fee: ${formatUZS(dispatchResult.fee)} • ETA: ${etaMins}m`,
         }
       );
       setIsManualModalOpen(false);

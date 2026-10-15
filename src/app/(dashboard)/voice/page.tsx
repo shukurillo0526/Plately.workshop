@@ -104,9 +104,50 @@ export default function VoiceOrderingPage() {
     }
   };
 
-  const handlePushToKDS = () => {
+  const handlePushToKDS = async () => {
     if (!orderDraft) return;
-    toast.success(`Voice Order pushed directly to Kitchen Display! (${orderDraft.items.length} items)`);
+
+    if (!user?.restaurant_id) {
+      toast.success(`Voice Order pushed to KDS (Demo mode)! (${orderDraft.items.length} items)`);
+      endCall();
+      return;
+    }
+
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+
+      const orderNumber = `VOX-${Math.floor(1000 + Math.random() * 9000)}`;
+      const { error } = await supabase.from("orders").insert({
+        restaurant_id: user.restaurant_id,
+        order_number: orderNumber,
+        customer_name: orderDraft.customerName || "Voice Caller",
+        customer_phone: orderDraft.customerPhone || "+998 90 000 00 00",
+        delivery_address: orderDraft.deliveryAddress || "Pickup / Counter",
+        type: orderDraft.deliveryAddress ? "delivery" : "pickup",
+        status: "confirmed",
+        total: orderDraft.subtotalUZS,
+        items: orderDraft.items.map((it) => ({
+          name: it.itemName,
+          quantity: it.quantity,
+          price: it.unitPriceUZS,
+        })),
+        special_instructions: orderDraft.transcriptionSnippet
+          ? `[AI Voice Transcript]: ${orderDraft.transcriptionSnippet}`
+          : "[AI Voice Order via Concierge Telephony]",
+      });
+
+      if (error) {
+        console.error("[Voice] Order insert error:", error);
+        toast.error("Failed to push to KDS: " + error.message);
+      } else {
+        toast.success(`Voice Order #${orderNumber} pushed directly to KDS & Kitchen!`);
+      }
+    } catch (err) {
+      console.error("[Voice] Push error:", err);
+      toast.error("Could not send order to kitchen");
+    }
+
     endCall();
   };
 

@@ -141,34 +141,44 @@ export default function CustomersPage() {
         .eq("restaurant_id", restaurantId)
         .order("created_at", { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        setCustomers(
-          data.map((row: any) => {
-            const spent = Number(row.total_spent) || 0;
-            let tier: LoyaltyTier = "New";
-            if (spent > 3000000) tier = "VIP Platinum";
-            else if (spent > 1500000) tier = "Gold";
-            else if (spent > 500000) tier = "Silver";
+      if (!error && data) {
+        if (data.length > 0) {
+          setCustomers(
+            data.map((row: any) => {
+              const spent = Number(row.total_spent) || 0;
+              let tier: LoyaltyTier = "New";
+              if (spent > 3000000) tier = "VIP Platinum";
+              else if (spent > 1500000) tier = "Gold";
+              else if (spent > 500000) tier = "Silver";
 
-            const rawPoints =
-              Array.isArray(row.customer_loyalty) && row.customer_loyalty.length > 0
-                ? row.customer_loyalty[0].points_balance
-                : Math.round(spent / 100);
+              const rawPoints =
+                Array.isArray(row.customer_loyalty) && row.customer_loyalty.length > 0
+                  ? row.customer_loyalty[0].points_balance
+                  : Math.round(spent / 100);
 
-            return {
-              id: row.id,
-              name: row.name,
-              phone: row.phone || "—",
-              email: row.email || "—",
-              totalOrders: row.total_orders || 0,
-              totalSpent: spent,
-              loyaltyTier: tier,
-              loyaltyPoints: Number(rawPoints) || 0,
-              lastOrderDate: row.updated_at || row.created_at || new Date().toISOString(),
-              notes: row.notes ? [row.notes] : [],
-            };
-          })
-        );
+              const parsedNotes = row.notes
+                ? row.notes.includes("\n")
+                  ? row.notes.split("\n").filter(Boolean)
+                  : [row.notes]
+                : [];
+
+              return {
+                id: row.id,
+                name: row.name,
+                phone: row.phone || "—",
+                email: row.email || "—",
+                totalOrders: row.total_orders || 0,
+                totalSpent: spent,
+                loyaltyTier: tier,
+                loyaltyPoints: Number(rawPoints) || 0,
+                lastOrderDate: row.updated_at || row.created_at || new Date().toISOString(),
+                notes: parsedNotes,
+              };
+            })
+          );
+        } else {
+          setCustomers([]);
+        }
       }
     } catch (err) {
       console.warn("[CRM] Fetch error:", err);
@@ -196,17 +206,22 @@ export default function CustomersPage() {
   const handleAddNote = async () => {
     if (!newNote.trim() || !selectedCustomer) return;
     const noteText = newNote.trim();
+    const updatedNotes = [...selectedCustomer.notes, noteText];
 
     setSelectedCustomer({
       ...selectedCustomer,
-      notes: [...selectedCustomer.notes, noteText],
+      notes: updatedNotes,
     });
+
+    setCustomers((prev) =>
+      prev.map((c) => (c.id === selectedCustomer.id ? { ...c, notes: updatedNotes } : c))
+    );
 
     if (restaurantId && !selectedCustomer.id.startsWith("C-")) {
       const supabase = createClient();
       await supabase
         .from("merchant_customers")
-        .update({ notes: noteText })
+        .update({ notes: updatedNotes.join("\n") })
         .eq("id", selectedCustomer.id);
     }
 

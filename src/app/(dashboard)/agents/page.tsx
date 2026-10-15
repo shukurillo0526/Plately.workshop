@@ -176,12 +176,64 @@ export default function AgentsHubPage() {
 
   const pendingCount = actions.filter((a) => a.status === "pending").length;
 
-  const handleApprove = (actionId: string) => {
+  const handleApprove = async (actionId: string) => {
     const act = actions.find((a) => a.id === actionId);
+    if (!act) return;
+
     setActions((prev) =>
       prev.map((a) => (a.id === actionId ? { ...a, status: "approved" } : a))
     );
-    toast.success(`Action Approved: "${act?.title}" has been executed!`);
+
+    if (user?.restaurant_id) {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+
+        if (act.payload?.promoCode) {
+          // 1. Create promo code in promotions table
+          await supabase.from("promotions").insert({
+            restaurant_id: user.restaurant_id,
+            code: act.payload.promoCode,
+            title: act.title,
+            discount_type: "percentage",
+            discount_value: act.payload.discount || 15,
+            min_order_value: 50000,
+            is_active: true,
+          });
+          toast.success(`Promo code "${act.payload.promoCode}" created and active in restaurant!`);
+        } else if (act.payload?.item && act.payload?.newPrice) {
+          // 2. Update menu item price in menu_items table
+          await supabase
+            .from("menu_items")
+            .update({ price: act.payload.newPrice })
+            .eq("restaurant_id", user.restaurant_id)
+            .ilike("name", `%${act.payload.item}%`);
+          toast.success(`Menu item "${act.payload.item}" updated to ${act.payload.newPrice} UZS!`);
+        } else if (act.payload?.itemsCount && act.payload?.total) {
+          // 3. Push voice order to orders table
+          const orderNum = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+          await supabase.from("orders").insert({
+            restaurant_id: user.restaurant_id,
+            order_number: orderNum,
+            customer_name: "Amir Temur Caller",
+            customer_phone: "+998 90 123 45 67",
+            delivery_address: "Amir Temur St, Tashkent",
+            type: "delivery",
+            status: "confirmed",
+            total: act.payload.total,
+            special_instructions: `[Voice Agent Verified]: ${act.summary}`,
+          });
+          toast.success(`Order #${orderNum} created and dispatched to Kitchen Display!`);
+        } else {
+          toast.success(`Action Approved: "${act.title}" executed!`);
+        }
+      } catch (err) {
+        console.error("[Agents] Action execution error:", err);
+        toast.success(`Action Approved: "${act.title}"`);
+      }
+    } else {
+      toast.success(`Action Approved (Demo): "${act.title}" executed!`);
+    }
   };
 
   const handleReject = (actionId: string) => {

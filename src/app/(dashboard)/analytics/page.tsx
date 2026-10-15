@@ -113,11 +113,70 @@ export default function AnalyticsDashboard() {
         const rev = valid.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
         const aov = valid.length > 0 ? Math.round(rev / valid.length) : 0;
 
+        // 1. Group daily revenue trend
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const dayBuckets: Record<string, number> = {};
+        
+        // Initialize buckets for the last 7 periods or days
+        const numBuckets = timeFilter === "7d" ? 7 : timeFilter === "30d" ? 4 : 12;
+        const trendList: Array<{ label: string; value: number }> = [];
+
+        if (timeFilter === "7d") {
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const key = d.toISOString().split("T")[0];
+            dayBuckets[key] = 0;
+            trendList.push({ label: dayNames[d.getDay()], value: 0 });
+          }
+          valid.forEach((o) => {
+            const dateKey = (o.created_at || "").split("T")[0];
+            const idx = Object.keys(dayBuckets).indexOf(dateKey);
+            if (idx !== -1) {
+              trendList[idx].value += Number(o.total) || 0;
+            }
+          });
+        } else {
+          trendList.push(...benchmark.revenueTrend);
+        }
+
+        // 2. Aggregate top selling dishes from order items
+        const itemMap: Record<string, { count: number; revenue: number }> = {};
+        valid.forEach((o) => {
+          if (Array.isArray(o.items)) {
+            o.items.forEach((item: any) => {
+              const name = item.name || "Item";
+              const qty = Number(item.quantity) || 1;
+              const price = Number(item.price) || 0;
+              if (!itemMap[name]) {
+                itemMap[name] = { count: 0, revenue: 0 };
+              }
+              itemMap[name].count += qty;
+              itemMap[name].revenue += price * qty;
+            });
+          }
+        });
+
+        const sortedItems = Object.entries(itemMap)
+          .map(([name, data]) => ({ name, ...data }))
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 5);
+
+        const maxItemRev = sortedItems[0]?.revenue || 1;
+        const topDishes = sortedItems.map((item) => ({
+          name: item.name,
+          count: item.count,
+          revenue: item.revenue,
+          progress: Math.round((item.revenue / maxItemRev) * 100),
+        }));
+
         setRealStats({
           revenue: rev,
-          orders: orders.length,
+          orders: valid.length,
           aov,
           isReal: true,
+          revenueTrend: trendList,
+          topDishes: topDishes.length > 0 ? topDishes : DEFAULT_TOP_ITEMS,
         });
       } else {
         setRealStats(null);
@@ -148,10 +207,14 @@ export default function AnalyticsDashboard() {
         prepTimeDiff: "-45s",
         repeatRate: 35.0,
         repeatGrowth: 1.0,
-        revenueTrend: benchmark.revenueTrend,
+        revenueTrend: realStats.revenueTrend || benchmark.revenueTrend,
+        topDishes: realStats.topDishes || DEFAULT_TOP_ITEMS,
       };
     }
-    return benchmark;
+    return {
+      ...benchmark,
+      topDishes: DEFAULT_TOP_ITEMS,
+    };
   }, [realStats, benchmark]);
 
   const handleExport = () => {
@@ -169,7 +232,7 @@ export default function AnalyticsDashboard() {
   };
 
   const maxTrendValue = useMemo(() => {
-    return Math.max(...currentData.revenueTrend.map((d) => d.value), 1);
+    return Math.max(...currentData.revenueTrend.map((d: { label: string; value: number }) => d.value), 1);
   }, [currentData.revenueTrend]);
 
   return (
@@ -268,12 +331,12 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div className="h-64 flex items-end gap-3 pt-6 pb-2">
-            {currentData.revenueTrend.map((d, i) => {
+            {currentData.revenueTrend.map((d: { label: string; value: number }, i: number) => {
               const heightPercent = Math.max(10, Math.round((d.value / maxTrendValue) * 100));
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
                   <div className="text-[10px] text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-mono">
-                    {Math.round(d.value / 1000000)}M
+                    {d.value >= 1000000 ? `${(d.value / 1000000).toFixed(1)}M` : d.value > 0 ? `${Math.round(d.value / 1000)}k` : "0"}
                   </div>
                   <div
                     style={{ height: `${heightPercent}%` }}
@@ -299,7 +362,7 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div className="space-y-4">
-            {DEFAULT_TOP_ITEMS.map((item, i) => (
+            {currentData.topDishes.map((item: { name: string; count: number; revenue: number; progress: number }, i: number) => (
               <div key={i} className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-medium text-white">{item.name}</span>
