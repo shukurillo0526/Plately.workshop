@@ -121,6 +121,7 @@ export async function POST(request: Request) {
         .from("stories")
         .insert({
           author_id: authorId,
+          restaurant_id: restaurantId,
           media_url: mediaUrl || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
           media_type: "image",
           caption: caption,

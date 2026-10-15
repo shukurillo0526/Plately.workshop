@@ -266,3 +266,129 @@ export interface MerchantAnalytics {
   avg_prep_time_minutes: number;
   unique_customers_30d: number;
 }
+
+// ─── Restaurant Website Config ──────────────────────────
+export interface RestaurantWebsiteConfig {
+  id: string;
+  restaurant_id: string;
+  template: Record<string, any> | null;
+  branding: Record<string, any> | null;
+  layout: Record<string, any> | null;
+  seo: Record<string, any> | null;
+  is_published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Supabase Database Type Structure ───────────────────
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export interface Database {
+  public: {
+    Tables: {
+      restaurant_website_configs: {
+        Row: {
+          id: string;
+          restaurant_id: string;
+          template: Record<string, any> | null;
+          branding: Record<string, any> | null;
+          layout: Record<string, any> | null;
+          seo: Record<string, any> | null;
+          is_published: boolean;
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          restaurant_id: string;
+          template?: Record<string, any> | null;
+          branding?: Record<string, any> | null;
+          layout?: Record<string, any> | null;
+          seo?: Record<string, any> | null;
+          is_published?: boolean;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          restaurant_id?: string;
+          template?: Record<string, any> | null;
+          branding?: Record<string, any> | null;
+          layout?: Record<string, any> | null;
+          seo?: Record<string, any> | null;
+          is_published?: boolean;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_website_configs_restaurant_id_fkey";
+            columns: ["restaurant_id"];
+            isOneToOne: true;
+            referencedRelation: "restaurants";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      restaurants: {
+        Row: Restaurant;
+        Insert: Partial<Restaurant> & { owner_id: string; name: string };
+        Update: Partial<Restaurant>;
+        Relationships: [];
+      };
+      branches: {
+        Row: Branch;
+        Insert: Partial<Branch> & { restaurant_id: string; name: string };
+        Update: Partial<Branch>;
+        Relationships: [];
+      };
+      staff: {
+        Row: Staff;
+        Insert: Partial<Staff> & { user_id: string; restaurant_id: string; display_name: string };
+        Update: Partial<Staff>;
+        Relationships: [];
+      };
+      menu_items: {
+        Row: MenuItem;
+        Insert: Partial<MenuItem> & { restaurant_id: string; name: string; price: number };
+        Update: Partial<MenuItem>;
+        Relationships: [];
+      };
+      orders: {
+        Row: Order;
+        Insert: Partial<Order> & { restaurant_id: string; user_id: string; total: number };
+        Update: Partial<Order>;
+        Relationships: [];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      order_type: OrderType;
+      order_status: OrderStatus;
+      order_priority: OrderPriority;
+      staff_role: StaffRole;
+      delivery_provider: DeliveryProvider;
+      delivery_status: DeliveryStatus;
+      subscription_tier: SubscriptionTier;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+}
+

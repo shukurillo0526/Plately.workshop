@@ -16,35 +16,28 @@ import {
   Undo2,
   Redo2,
   RefreshCw,
-  Plus,
   Trash2,
   ArrowUp,
   ArrowDown,
   GripVertical,
   CheckCircle2,
-  Settings,
   X,
   Calendar,
   Utensils,
   Star,
   MapPin,
   Clock,
-  Phone,
   Image as ImageIcon,
   HelpCircle,
   Megaphone,
   ChefHat,
   ChevronDown,
-  ChevronUp,
   Sliders,
   Send,
-  Wand2,
-  Copy,
   Paperclip,
   Mic,
   MicOff,
   FileText,
-  Music,
   Check,
   Cpu,
   Menu as MenuIcon,
@@ -55,293 +48,42 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { formatUZS } from "@/lib/format";
 
-export type DeviceMode = "desktop" | "tablet" | "mobile";
-
-export interface TableItem {
-  id: string;
-  name: string;
-  seats: number;
-  shape: "rect" | "round" | "booth" | "bar";
-  zone: string;
-  status: "available" | "reserved" | "selected";
-  x: number; // 0 to 100%
-  y: number; // 0 to 100%
-  width?: number;
-  height?: number;
-}
-
-export type SectionType =
-  | "announcement"
-  | "hero"
-  | "about"
-  | "highlights"
-  | "booking"
-  | "table_selection"
-  | "reviews"
-  | "hours_location"
-  | "gallery"
-  | "faq"
-  | "cta"
-  | "custom_widget";
-
-export interface WebsiteSection {
-  id: string;
-  type: SectionType;
-  title: string;
-  subtitle?: string;
-  content: string;
-  enabled: boolean;
-  meta?: {
-    buttonText?: string;
-    buttonLink?: string;
-    imageUrl?: string;
-    layout?: "centered" | "split" | "minimal";
-    badge?: string;
-    interactiveMap?: boolean;
-    zones?: string[];
-    tables?: TableItem[];
-    widgetCode?: string;
-    items?: Array<{
-      title: string;
-      desc?: string;
-      price?: number;
-      image?: string;
-      tag?: string;
-    }>;
-  };
-}
-
-export interface WebsiteThemeConfig {
-  primaryColor: string;
-  secondaryColor?: string;
-  backgroundColor?: string;
-  cardColor?: string;
-  textColor?: string;
-  fontFamily: "Outfit" | "Inter" | "Playfair Display";
-  borderRadius?: "sharp" | "rounded" | "pill";
-  heroTagline: string;
-  heroHeadline: string;
-  heroButtonText: string;
-  heroButtonLink?: string;
-  heroLayout?: "centered" | "split" | "minimal";
-  heroImage?: string;
-  aboutStory: string;
-  aboutImage?: string;
-  deliveryNotice: string;
-  sections: WebsiteSection[];
-}
-
-export interface AttachedMedia {
-  name: string;
-  type: string;
-  dataUrl: string;
-  size?: number;
-}
-
-const DEFAULT_FLOORPLAN_TABLES: TableItem[] = [
-  { id: "t1", name: "Table 1", seats: 6, shape: "booth", zone: "Window Booths", status: "available", x: 16, y: 22 },
-  { id: "t2", name: "Table 2", seats: 6, shape: "booth", zone: "Window Booths", status: "available", x: 38, y: 22 },
-  { id: "t3", name: "Table 3", seats: 6, shape: "booth", zone: "Window Booths", status: "reserved", x: 60, y: 22 },
-  { id: "t-vip8", name: "VIP Booth 8", seats: 8, shape: "booth", zone: "Private Lounge", status: "available", x: 84, y: 22 },
-  { id: "t7-mid", name: "Table 7", seats: 4, shape: "rect", zone: "Main Dining", status: "available", x: 28, y: 50 },
-  { id: "t8-mid", name: "Table 8", seats: 6, shape: "rect", zone: "Main Dining", status: "available", x: 48, y: 50 },
-  { id: "bar", name: "Central Bar", seats: 5, shape: "bar", zone: "Bar Area", status: "available", x: 70, y: 50 },
-  { id: "t6", name: "Table 6", seats: 4, shape: "booth", zone: "Window Booths", status: "available", x: 16, y: 78 },
-  { id: "t7-bot", name: "Table 7", seats: 4, shape: "booth", zone: "Window Booths", status: "available", x: 38, y: 78 },
-  { id: "t8-bot", name: "Table 8", seats: 4, shape: "booth", zone: "Window Booths", status: "reserved", x: 60, y: 78 },
-];
-
-const DEFAULT_SECTIONS: WebsiteSection[] = [
-  {
-    id: "sec-announcement",
-    type: "announcement",
-    title: "Delivery Announcement",
-    content: "⚡ Fast delivery in under 35 minutes across Tashkent • Free delivery on orders over 100,000 UZS",
-    enabled: true,
-  },
-  {
-    id: "sec-hero",
-    type: "hero",
-    title: "Hero Banner",
-    subtitle: "AUTHENTIC TASHKENT TASTE",
-    content: "Crafted with passion using generational recipes, fresh organic spices, and premium ingredients.",
-    enabled: true,
-    meta: {
-      buttonText: "Order Online Now",
-      buttonLink: "#menu",
-      layout: "split",
-      imageUrl: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=900&auto=format&fit=crop&q=80",
-      badge: "⭐️ 4.9 (420+ Reviews) • 100% Halal",
-    },
-  },
-  {
-    id: "sec-about",
-    type: "about",
-    title: "Our Heritage & Culinary Passion",
-    subtitle: "GENERATIONS OF FLAVOR",
-    content: "Rooted in the heart of Tashkent, our kitchen honors the sacred balance of fire, spices, and hand-selected meats to bring genuine hospitality to every table.",
-    enabled: true,
-    meta: {
-      imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
-      badge: "Family Owned • Est. 1998",
-    },
-  },
-  {
-    id: "sec-highlights",
-    type: "highlights",
-    title: "Signature Dishes",
-    subtitle: "PREPARED FRESH DAILY",
-    content: "Chef recommendations slow-cooked and flame-grilled to perfection.",
-    enabled: true,
-    meta: {
-      items: [
-        {
-          title: "To'y Oshi (Wedding Plov)",
-          desc: "Slow-cooked tender beef with golden carrots and raisins.",
-          price: 38000,
-          tag: "Signature",
-          image: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=500&auto=format&fit=crop&q=80",
-        },
-        {
-          title: "Tandir Somsa",
-          desc: "Crispy clay-oven pastry with diced beef and cumin.",
-          price: 16000,
-          tag: "Crispy",
-          image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=80",
-        },
-        {
-          title: "Charcoal Shashlik",
-          desc: "Marinated lamb skewers charcoal-grilled with sweet onions.",
-          price: 46000,
-          tag: "Flame Grilled",
-          image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=80",
-        },
-      ],
-    },
-  },
-  {
-    id: "sec-tables",
-    type: "table_selection",
-    title: "Interactive Floor Plan & Table Selection",
-    subtitle: "REAL-TIME SEATING MAP",
-    content: "Select your preferred dining table, window booth, or bar seat with live architectural availability.",
-    enabled: true,
-    meta: {
-      interactiveMap: true,
-      zones: ["All Zones", "Window Booths", "Main Dining", "Private Lounge", "Bar Area"],
-      tables: DEFAULT_FLOORPLAN_TABLES,
-    },
-  },
-  {
-    id: "sec-booking",
-    type: "booking",
-    title: "Reserve a Table",
-    subtitle: "ELEVATED DINING EXPERIENCE",
-    content: "Book a table for family gatherings, business lunches, or romantic evenings with instant confirmation.",
-    enabled: true,
-    meta: {
-      buttonText: "Confirm Table Reservation",
-    },
-  },
-  {
-    id: "sec-reviews",
-    type: "reviews",
-    title: "Loved by Tashkent Foodies",
-    subtitle: "4.9 STARS ON GOOGLE & YANDEX",
-    content: "Hear what our guests have to say about our hospitality and flavors.",
-    enabled: true,
-    meta: {
-      items: [
-        {
-          title: "Aziz Rakhimov",
-          desc: "The wedding plov here is legitimately the best in the city. The meat melts in your mouth and service is lightning fast!",
-          tag: "Verified Diner",
-        },
-        {
-          title: "Malika Yusupova",
-          desc: "Stunning atmosphere and delicious crispy somsa. We reserved a table for our family anniversary and everything was flawless.",
-          tag: "Food Critic",
-        },
-        {
-          title: "Davron Karimov",
-          desc: "Always fresh, hot delivery within 30 minutes. Plately makes direct ordering so seamless!",
-          tag: "Loyal Regular",
-        },
-      ],
-    },
-  },
-  {
-    id: "sec-hours",
-    type: "hours_location",
-    title: "Hours & Locations",
-    subtitle: "VISIT OUR BRANCHES",
-    content: "Open Daily 10:00 - 23:00 • Central Tashkent & Chorsu Outlets",
-    enabled: true,
-  },
-];
-
-const THEME_PRESETS = [
-  {
-    name: "Saffron Amber",
-    primary: "#f98b25",
-    secondary: "#e11d48",
-    bg: "#0d1117",
-    card: "#161b22",
-    font: "Outfit" as const,
-  },
-  {
-    name: "Emerald Luxury",
-    primary: "#10b981",
-    secondary: "#059669",
-    bg: "#061510",
-    card: "#0b231b",
-    font: "Playfair Display" as const,
-  },
-  {
-    name: "Obsidian Gold",
-    primary: "#d4af37",
-    secondary: "#f59e0b",
-    bg: "#0b0d11",
-    card: "#141720",
-    font: "Playfair Display" as const,
-  },
-  {
-    name: "Artisan Coffee",
-    primary: "#d97706",
-    secondary: "#f59e0b",
-    bg: "#14100c",
-    card: "#1f1814",
-    font: "Outfit" as const,
-  },
-  {
-    name: "Cobalt Modern",
-    primary: "#3b82f6",
-    secondary: "#06b6d4",
-    bg: "#090d16",
-    card: "#111827",
-    font: "Inter" as const,
-  },
-  {
-    name: "Royal Crimson",
-    primary: "#e11d48",
-    secondary: "#f43f5e",
-    bg: "#14070a",
-    card: "#200d12",
-    font: "Outfit" as const,
-  },
-];
-
-const PHOTO_PRESETS = [
-  { label: "Wedding Plov", url: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=900&auto=format&fit=crop&q=80" },
-  { label: "Charcoal Shashlik", url: "https://images.unsplash.com/photo-1544025162-d76694265947?w=900&auto=format&fit=crop&q=80" },
-  { label: "Clay Oven Somsa", url: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=900&auto=format&fit=crop&q=80" },
-  { label: "Hand-pulled Noodles", url: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=900&auto=format&fit=crop&q=80" },
-  { label: "Dining Hall Ambience", url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&auto=format&fit=crop&q=80" },
-  { label: "Artisan Coffee & Pastry", url: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80" },
-];
+import { Reorder } from "motion/react";
+import type {
+  DeviceMode,
+  TableItem,
+  SectionType,
+  WebsiteSection,
+  WebsiteThemeConfig,
+  AttachedMedia,
+  MenuShowcaseItem,
+} from "@/lib/types/website";
+export type {
+  DeviceMode,
+  TableItem,
+  SectionType,
+  WebsiteSection,
+  WebsiteThemeConfig,
+  AttachedMedia,
+  MenuShowcaseItem,
+};
+import {
+  DEFAULT_SECTIONS,
+  THEME_PRESETS,
+  PHOTO_PRESETS,
+} from "@/lib/types/website";
+import {
+  HeroSection,
+  BrandStorySection,
+  MenuShowcaseSection,
+  FloorPlanSection,
+  ChefHighlightsSection,
+  ReviewsSection,
+  HoursLocationSection,
+  getRadiusClass,
+  getThemeStyles,
+} from "@/components/website";
 
 const GEMINI_MODELS = [
   {
@@ -382,9 +124,6 @@ export default function WebsiteBuilderPage() {
   const [activeDrawer, setActiveDrawer] = useState<"none" | "blocks" | "inspector" | "theme">("none");
   const [selectedSectionId, setSelectedSectionId] = useState<string>("sec-hero");
   const [selectedTableId, setSelectedTableId] = useState<string>("t1");
-  const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>("All Zones");
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("19:30");
-  const [selectedGuests, setSelectedGuests] = useState<number>(4);
   const [isAiStudioMode, setIsAiStudioMode] = useState<boolean>(true);
   const [aiThoughts, setAiThoughts] = useState<string[]>([
     "Multimodal Vision: Analyzed architectural floor plan sketch & media",
@@ -404,7 +143,6 @@ export default function WebsiteBuilderPage() {
   const [attachments, setAttachments] = useState<AttachedMedia[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<any>(null);
 
   const restaurantName = user?.restaurant_name || "Kamolon";
   const restaurantSlug = user?.restaurant_slug || "kamolon";
@@ -503,8 +241,9 @@ export default function WebsiteBuilderPage() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || "Save failed");
       toast.success("Website draft saved!");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to save draft");
+    } catch (err) {
+      const error = err as Error;
+      toast.error(error?.message || "Failed to save draft");
     } finally {
       setIsSaving(false);
     }
@@ -522,8 +261,9 @@ export default function WebsiteBuilderPage() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || "Publish failed");
       toast.success("🎉 Website published live! Changes are active on your public storefront.");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to publish live");
+    } catch (err) {
+      const error = err as Error;
+      toast.error(error?.message || "Failed to publish live");
     } finally {
       setIsPublishing(false);
     }
@@ -535,7 +275,7 @@ export default function WebsiteBuilderPage() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recordingTimerRef = useRef<any>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | number | null>(null);
 
   // Attach Files & Photos Handler
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -572,7 +312,7 @@ export default function WebsiteBuilderPage() {
               setAiCommandText((prev) => (prev ? `${prev} ${data.text}` : data.text));
               toast.success(`🎙️ Transcribed audio: "${data.text}"`);
             }
-          } catch (e: any) {
+          } catch (e) {
             console.warn("Transcribe error:", e);
           } finally {
             setIsTranscribing(false);
@@ -644,7 +384,7 @@ export default function WebsiteBuilderPage() {
       };
 
       mediaRecorder.onstop = async () => {
-        clearInterval(recordingTimerRef.current);
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
         stream.getTracks().forEach((track) => track.stop());
 
         if (audioChunksRef.current.length === 0) return;
@@ -683,7 +423,7 @@ export default function WebsiteBuilderPage() {
             } else {
               toast.info("Voice memo recorded & attached for Gemini AI!");
             }
-          } catch (e: any) {
+          } catch (e) {
             console.warn("Transcription error:", e);
             toast.info("Voice memo recorded & attached for Gemini AI!");
           } finally {
@@ -702,9 +442,10 @@ export default function WebsiteBuilderPage() {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
       toast.info("🎙️ Recording started! Speak your website changes...");
-    } catch (err: any) {
-      console.error("Audio recording error:", err);
-      toast.error("Microphone access denied: " + (err.message || "Please allow mic permissions"));
+    } catch (err) {
+      const error = err as Error;
+      console.error("Audio recording error:", error);
+      toast.error("Microphone access denied: " + (error?.message || "Please allow mic permissions"));
       setIsRecording(false);
     }
   };
@@ -714,7 +455,7 @@ export default function WebsiteBuilderPage() {
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
-    clearInterval(recordingTimerRef.current);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
   };
 
   const toggleAudioRecording = () => {
@@ -766,8 +507,9 @@ export default function WebsiteBuilderPage() {
         setAiCommandText("");
         setAttachments([]);
       }
-    } catch (err: any) {
-      toast.error(err?.message || "AI Command execution failed");
+    } catch (err) {
+      const error = err as Error;
+      toast.error(error?.message || "AI Command execution failed");
     } finally {
       setIsAiProcessing(false);
       setAiStatusMsg("");
@@ -775,12 +517,17 @@ export default function WebsiteBuilderPage() {
   };
 
   // Move Section Up/Down
-  const moveSection = (index: number, dir: "up" | "down") => {
-    const targetIdx = dir === "up" ? index - 1 : index + 1;
+  const moveSection = (idOrIndex: string | number, dir: "up" | "down") => {
+    const trueIndex =
+      typeof idOrIndex === "string"
+        ? config.sections.findIndex((s) => s.id === idOrIndex)
+        : idOrIndex;
+    if (trueIndex < 0 || trueIndex >= config.sections.length) return;
+    const targetIdx = dir === "up" ? trueIndex - 1 : trueIndex + 1;
     if (targetIdx < 0 || targetIdx >= config.sections.length) return;
     const nextSections = [...config.sections];
-    const temp = nextSections[index];
-    nextSections[index] = nextSections[targetIdx];
+    const temp = nextSections[trueIndex];
+    nextSections[trueIndex] = nextSections[targetIdx];
     nextSections[targetIdx] = temp;
     updateConfigWithHistory({ ...config, sections: nextSections });
   };
@@ -802,71 +549,31 @@ export default function WebsiteBuilderPage() {
 
   // Add Section from library
   const handleAddSection = (type: SectionType) => {
-    const newId = `sec-${type}-${Date.now()}`;
-    let newSec: WebsiteSection;
-
-    switch (type) {
-      case "booking":
-        newSec = {
+    const newId = `sec-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const template = DEFAULT_SECTIONS.find((s) => s.type === type);
+    const newSec: WebsiteSection = template
+      ? {
+          ...JSON.parse(JSON.stringify(template)),
           id: newId,
-          type: "booking",
-          title: "Reserve a Table",
-          subtitle: "DINE IN LUXURY",
-          content: "Book a table for lunch or dinner with instant SMS and WhatsApp confirmation.",
           enabled: true,
-          meta: { buttonText: "Book Now" },
-        };
-        break;
-      case "gallery":
-        newSec = {
+        }
+      : {
           id: newId,
-          type: "gallery",
-          title: "Culinary Gallery & Moments",
-          subtitle: "OUR ATMOSPHERE",
-          content: "Experience the vibrant craft, open flame kitchens, and warm hospitality.",
+          type,
+          title: `New ${type.replace(/_/g, " ").toUpperCase()} Section`,
+          content: "Custom restaurant section content.",
           enabled: true,
         };
-        break;
-      case "faq":
-        newSec = {
-          id: newId,
-          type: "faq",
-          title: "Frequently Asked Questions",
-          subtitle: "HELP & POLICIES",
-          content: "100% Halal certified • 35-min delivery across Tashkent • Group bookings available.",
-          enabled: true,
-        };
-        break;
-      case "cta":
-        newSec = {
-          id: newId,
-          type: "cta",
-          title: "Ready to Taste the Finest?",
-          subtitle: "ORDER OR DINE WITH US",
-          content: "Enjoy special welcome treats and fast direct delivery on your first order.",
-          enabled: true,
-          meta: { buttonText: "Start Ordering Now" },
-        };
-        break;
-      default:
-        newSec = {
-          id: newId,
-          type: "highlights",
-          title: "Special Features",
-          subtitle: "OUR OFFERINGS",
-          content: "Handcrafted selections prepared daily.",
-          enabled: true,
-        };
-    }
 
     updateConfigWithHistory({ ...config, sections: [...config.sections, newSec] });
     setSelectedSectionId(newId);
     setActiveDrawer("inspector");
-    toast.success(`Added new ${type.toUpperCase()} section`);
+    toast.success(`Added ${newSec.title}`);
   };
 
   const selectedSection = config.sections.find((s) => s.id === selectedSectionId);
   const activeModelObj = GEMINI_MODELS.find((m) => m.id === selectedModel) || GEMINI_MODELS[0];
+  const activeSections = config.sections.filter((s) => s.enabled);
 
   return (
     <div className="flex flex-col h-[calc(100vh-4.5rem)] text-slate-100 bg-[#07090e] overflow-hidden select-none">
@@ -1284,7 +991,7 @@ export default function WebsiteBuilderPage() {
                 ? "w-[390px] h-[780px] max-h-[82vh] rounded-[48px] border-[10px] border-slate-900 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95)] ring-1 ring-white/10 relative"
                 : isTablet
                 ? "w-[768px] h-[850px] max-h-[85vh] rounded-[32px] border-[8px] border-slate-900 shadow-2xl ring-1 ring-white/10"
-                : "w-full max-w-5xl rounded-2xl border border-white/10"
+                : "w-full max-w-[1280px] rounded-2xl border border-white/10"
             }`}
           >
             {/* Realistic Header: Smartphone Dynamic Island or Desktop Browser Bar */}
@@ -1333,10 +1040,7 @@ export default function WebsiteBuilderPage() {
             {/* LIVE PREVIEW CANVAS CONTENT */}
             <div
               className="flex-1 overflow-y-auto text-slate-100 scrollbar-thin"
-              style={{
-                backgroundColor: config.backgroundColor || "#0d1117",
-                fontFamily: config.fontFamily === "Playfair Display" ? "var(--font-serif, serif)" : "var(--font-sans, sans-serif)",
-              }}
+              style={getThemeStyles(config)}
             >
               {/* TOP ANNOUNCEMENT BAR */}
               {config.sections.find((s) => s.type === "announcement" && s.enabled) && (
@@ -1352,7 +1056,7 @@ export default function WebsiteBuilderPage() {
                       setSelectedSectionId("sec-announcement");
                       setActiveDrawer("inspector");
                     }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-[10px] underline shrink-0"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-[10px] underline shrink-0 cursor-pointer"
                   >
                     Edit
                   </button>
@@ -1367,7 +1071,9 @@ export default function WebsiteBuilderPage() {
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className={`rounded-xl flex items-center justify-center font-bold text-white shadow-lg shrink-0 ${
+                    className={`flex items-center justify-center font-bold text-white shadow-lg shrink-0 ${
+                      getRadiusClass(config.borderRadius, "badge")
+                    } ${
                       isMobile ? "w-8 h-8 text-xs" : "w-9 h-9 text-sm"
                     }`}
                     style={{ backgroundColor: config.primaryColor }}
@@ -1387,7 +1093,7 @@ export default function WebsiteBuilderPage() {
                   <div className="flex items-center gap-6 text-xs text-slate-300 font-medium">
                     <span className="hover:text-white cursor-pointer">Menu</span>
                     <span className="hover:text-white cursor-pointer">Our Story</span>
-                    <span className="hover:text-white cursor-pointer">Table Booking</span>
+                    <span className="hover:text-white cursor-pointer">Floor Plan</span>
                     <span className="hover:text-white cursor-pointer">Reviews</span>
                   </div>
                 )}
@@ -1395,7 +1101,9 @@ export default function WebsiteBuilderPage() {
                 {/* Right Action / Mobile Hamburger */}
                 <div className="flex items-center gap-2 shrink-0">
                   <button
-                    className={`rounded-lg font-semibold text-white shadow-md transition-transform hover:scale-105 shrink-0 ${
+                    className={`font-semibold text-white shadow-md transition-transform hover:scale-105 shrink-0 ${
+                      getRadiusClass(config.borderRadius, "button")
+                    } ${
                       isMobile ? "px-2.5 py-1 text-[11px]" : "px-3.5 py-1.5 text-xs"
                     }`}
                     style={{ backgroundColor: config.primaryColor }}
@@ -1412,9 +1120,7 @@ export default function WebsiteBuilderPage() {
 
               {/* RENDER ACTIVE SECTIONS IN EXACT ORDER */}
               <div className="divide-y divide-white/[0.05]">
-                {config.sections
-                  .filter((s) => s.enabled)
-                  .map((section, index) => (
+                {activeSections.map((section, index) => (
                     <div
                       key={section.id}
                       onClick={() => {
@@ -1432,54 +1138,59 @@ export default function WebsiteBuilderPage() {
                       {/* Section Hover Mini Toolbar */}
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all bg-[#161b22] border border-white/10 rounded-lg p-1 flex items-center gap-1 shadow-xl z-20">
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            moveSection(index, "up");
+                            moveSection(section.id, "up");
                           }}
                           disabled={index === 0}
-                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20"
+                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20 cursor-pointer"
                           title="Move Up"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            moveSection(index, "down");
+                            moveSection(section.id, "down");
                           }}
-                          disabled={index === config.sections.length - 1}
-                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20"
+                          disabled={index === activeSections.length - 1}
+                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20 cursor-pointer"
                           title="Move Down"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedSectionId(section.id);
                             setActiveDrawer("inspector");
                           }}
-                          className="p-1 hover:text-white text-slate-400"
+                          className="p-1 hover:text-white text-slate-400 cursor-pointer"
                           title="Edit in Inspector"
                         >
                           <Sliders className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleSection(section.id);
                           }}
-                          className="p-1 hover:text-amber-400 text-slate-400"
+                          className="p-1 hover:text-amber-400 text-slate-400 cursor-pointer"
                           title="Hide Section"
                         >
                           <EyeOff className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             deleteSection(section.id);
                           }}
-                          className="p-1 hover:text-rose-400 text-slate-400"
+                          className="p-1 hover:text-rose-400 text-slate-400 cursor-pointer"
                           title="Delete Section"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1488,531 +1199,83 @@ export default function WebsiteBuilderPage() {
 
                       {/* SECTION 1: HERO */}
                       {section.type === "hero" && (
-                        <div
-                          className={`flex flex-col ${
-                            isMobile
-                              ? "items-center text-center gap-4"
-                              : config.heroLayout === "split"
-                              ? "md:flex-row md:items-center gap-8"
-                              : "items-center text-center max-w-2xl mx-auto gap-4"
-                          }`}
-                        >
-                          <div className={`space-y-3 ${isMobile ? "w-full" : "flex-1"}`}>
-                            {section.meta?.badge && (
-                              <div
-                                className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase"
-                                style={{
-                                  backgroundColor: `${config.primaryColor}20`,
-                                  color: config.primaryColor,
-                                }}
-                              >
-                                <span>{section.meta.badge}</span>
-                              </div>
-                            )}
-
-                            <h1
-                              className={`font-extrabold tracking-tight text-white leading-tight ${
-                                isMobile ? "text-2xl" : "text-3xl md:text-5xl"
-                              }`}
-                            >
-                              {config.heroHeadline}
-                            </h1>
-
-                            <p
-                              className={`text-slate-300 leading-relaxed ${
-                                isMobile ? "text-xs max-w-xs mx-auto" : "text-sm md:text-base"
-                              }`}
-                            >
-                              {config.heroTagline}
-                            </p>
-
-                            <div
-                              className={`pt-2 flex gap-2 ${
-                                isMobile ? "flex-col w-full" : "flex-wrap"
-                              }`}
-                            >
-                              <button
-                                className={`rounded-xl font-bold text-white shadow-xl transition-transform hover:scale-105 ${
-                                  isMobile ? "w-full py-2.5 text-xs" : "px-6 py-3 text-sm"
-                                }`}
-                                style={{ backgroundColor: config.primaryColor }}
-                              >
-                                {config.heroButtonText}
-                              </button>
-                              <button
-                                className={`rounded-xl font-semibold bg-white/10 hover:bg-white/15 text-white border border-white/10 transition-colors ${
-                                  isMobile ? "w-full py-2 text-xs" : "px-5 py-3 text-sm"
-                                }`}
-                              >
-                                Explore Full Menu
-                              </button>
-                            </div>
-                          </div>
-
-                          {(config.heroLayout === "split" || isMobile) && (
-                            <div className={`relative ${isMobile ? "w-full mt-2" : "flex-1"}`}>
-                              <div
-                                className={`w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-cover bg-center ${
-                                  isMobile ? "h-48" : "h-64 md:h-80"
-                                }`}
-                                style={{
-                                  backgroundImage: `url(${config.heroImage || section.meta?.imageUrl})`,
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
+                        <HeroSection
+                          section={section}
+                          config={config}
+                          isMobile={isMobile}
+                          onPrimaryCtaClick={() => toast.success("CTA: Order Online clicked")}
+                          onSecondaryCtaClick={() => toast.success("CTA: Explore Menu clicked")}
+                        />
                       )}
 
-                      {/* SECTION 2: ABOUT & HERITAGE */}
+                      {/* SECTION 2: ABOUT & BRAND STORY */}
                       {section.type === "about" && (
-                        <div
-                          className={`flex flex-col items-center gap-6 ${
-                            isMobile ? "" : "md:flex-row gap-8"
-                          }`}
-                        >
-                          <div className={`relative ${isMobile ? "w-full" : "flex-1"}`}>
-                            <div
-                              className={`w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-cover bg-center ${
-                                isMobile ? "h-44" : "h-64"
-                              }`}
-                              style={{
-                                backgroundImage: `url(${config.aboutImage || section.meta?.imageUrl})`,
-                              }}
-                            />
-                            <div
-                              className="absolute -bottom-3 -right-3 px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-xl border border-white/10 text-white"
-                              style={{ backgroundColor: config.primaryColor }}
-                            >
-                              {section.meta?.badge || "Est. 1998"}
-                            </div>
-                          </div>
-
-                          <div className={`space-y-2.5 ${isMobile ? "w-full text-center" : "flex-1"}`}>
-                            <span
-                              className="text-[10px] font-bold uppercase tracking-widest"
-                              style={{ color: config.primaryColor }}
-                            >
-                              {section.subtitle || "OUR HERITAGE"}
-                            </span>
-                            <h2
-                              className={`font-bold text-white tracking-tight ${
-                                isMobile ? "text-xl" : "text-2xl md:text-3xl"
-                              }`}
-                            >
-                              {section.title}
-                            </h2>
-                            <p className="text-xs text-slate-300 leading-relaxed">{config.aboutStory}</p>
-                            <div
-                              className={`pt-1 flex flex-wrap gap-2 text-[10px] text-slate-400 font-medium ${
-                                isMobile ? "justify-center" : "items-center gap-4"
-                              }`}
-                            >
-                              <span>✓ Halal Certified Meat</span>
-                              <span>✓ Clay Oven Bread Daily</span>
-                              <span>✓ Organic Spices</span>
-                            </div>
-                          </div>
-                        </div>
+                        <BrandStorySection
+                          section={section}
+                          config={config}
+                          isMobile={isMobile}
+                        />
                       )}
 
-                      {/* SECTION 3: SIGNATURE DISHES */}
-                      {section.type === "highlights" && (
-                        <div className="space-y-4">
-                          <div className="text-center max-w-xl mx-auto space-y-1">
-                            <span
-                              className="text-[10px] font-bold uppercase tracking-widest"
-                              style={{ color: config.primaryColor }}
-                            >
-                              {section.subtitle || "CHEF SPECIALS"}
-                            </span>
-                            <h2
-                              className={`font-bold text-white tracking-tight ${
-                                isMobile ? "text-xl" : "text-2xl md:text-3xl"
-                              }`}
-                            >
-                              {section.title}
-                            </h2>
-                            <p className="text-[11px] text-slate-400">{section.content}</p>
-                          </div>
-
-                          <div
-                            className={`grid gap-3.5 ${
-                              isMobile ? "grid-cols-1" : "grid-cols-1 md:grid-cols-3"
-                            }`}
-                          >
-                            {(section.meta?.items || []).map((dish, i) => (
-                              <div
-                                key={i}
-                                className="rounded-xl border border-white/10 overflow-hidden bg-slate-900/60 hover:border-white/20 transition-all flex flex-col"
-                              >
-                                {dish.image && (
-                                  <div
-                                    className={`bg-cover bg-center ${isMobile ? "h-40" : "h-36"}`}
-                                    style={{ backgroundImage: `url(${dish.image})` }}
-                                  />
-                                )}
-                                <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
-                                  <div>
-                                    <div className="flex items-center justify-between">
-                                      <h3 className="font-bold text-xs sm:text-sm text-white">{dish.title}</h3>
-                                      {dish.tag && (
-                                        <span
-                                          className="text-[9px] px-2 py-0.5 rounded font-bold uppercase"
-                                          style={{
-                                            backgroundColor: `${config.primaryColor}20`,
-                                            color: config.primaryColor,
-                                          }}
-                                        >
-                                          {dish.tag}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{dish.desc}</p>
-                                  </div>
-                                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                                    <span className="font-bold text-xs sm:text-sm text-white">
-                                      {dish.price ? formatUZS(dish.price) : "38,000 UZS"}
-                                    </span>
-                                    <button
-                                      className="px-2.5 py-1 rounded text-[11px] font-semibold text-white"
-                                      style={{ backgroundColor: config.primaryColor }}
-                                    >
-                                      + Add
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                      {/* SECTION 3: INTERACTIVE MENU SHOWCASE */}
+                      {(section.type === "menu" || section.type === "menu_showcase") && (
+                        <MenuShowcaseSection
+                          section={section}
+                          config={config}
+                          isMobile={isMobile}
+                          onAddToCart={(dish) => toast.success(`Added ${dish.name} to order`)}
+                        />
                       )}
 
-                      {/* SECTION: INTERACTIVE ARCHITECTURAL FLOOR PLAN & TABLE SELECTION */}
-                      {section.type === "table_selection" && (() => {
-                        const tables: TableItem[] = section.meta?.tables || DEFAULT_FLOORPLAN_TABLES;
-                        const zones: string[] = section.meta?.zones || [
-                          "All Zones",
-                          "Window Booths",
-                          "Main Dining",
-                          "Private Lounge",
-                          "Bar Area",
-                        ];
-                        const filteredTables =
-                          selectedZoneFilter === "All Zones"
-                            ? tables
-                            : tables.filter((t) => t.zone === selectedZoneFilter);
-                        const activeTable = tables.find((t) => t.id === selectedTableId) || tables[0];
+                      {/* SECTION 4: INTERACTIVE FLOOR PLAN & TABLE SELECTION */}
+                      {section.type === "table_selection" && (
+                        <FloorPlanSection
+                          section={section}
+                          config={config}
+                          isMobile={isMobile}
+                          selectedTableId={selectedTableId}
+                          onTableSelect={(table) => setSelectedTableId(table.id)}
+                          onReservationConfirm={(table, slot) =>
+                            toast.success(
+                              `🎉 ${table.name} reserved for ${slot}! Instant SMS & WhatsApp confirmation sent.`
+                            )
+                          }
+                        />
+                      )}
 
-                        return (
-                          <div className="space-y-6">
-                            {/* Section Title & Subtitle */}
-                            <div className="text-center max-w-xl mx-auto space-y-1">
-                              <span
-                                className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-white/10"
-                                style={{
-                                  backgroundColor: `${config.primaryColor}15`,
-                                  color: config.primaryColor,
-                                }}
-                              >
-                                {section.subtitle || "LIVE ARCHITECTURAL SEATING"}
-                              </span>
-                              <h2
-                                className={`font-bold text-white tracking-tight ${
-                                  isMobile ? "text-xl" : "text-2xl md:text-3xl"
-                                }`}
-                              >
-                                {section.title || "Select Your Table & Seating"}
-                              </h2>
-                              <p className="text-xs text-slate-400">
-                                {section.content ||
-                                  "Click on any table, booth, or bar seat to check live availability and reserve instantly."}
-                              </p>
-                            </div>
+                      {/* SECTION 5: CHEF HIGHLIGHTS */}
+                      {(section.type === "highlights" || section.type === "chef_highlights") && (
+                        <ChefHighlightsSection
+                          section={section}
+                          config={config}
+                          isMobile={isMobile}
+                        />
+                      )}
 
-                            {/* Zone Filters & Status Legend */}
-                            <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-b border-white/[0.06] pb-3">
-                              {/* Zone Filter Buttons */}
-                              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
-                                {zones.map((zone) => (
-                                  <button
-                                    key={zone}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedZoneFilter(zone);
-                                    }}
-                                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer ${
-                                      selectedZoneFilter === zone
-                                        ? "text-white shadow-md font-semibold"
-                                        : "bg-white/5 text-slate-400 hover:text-white border border-white/5"
-                                    }`}
-                                    style={
-                                      selectedZoneFilter === zone
-                                        ? { backgroundColor: config.primaryColor }
-                                        : {}
-                                    }
-                                  >
-                                    {zone}
-                                  </button>
-                                ))}
-                              </div>
+                      {/* SECTION 6: CUSTOMER REVIEWS */}
+                      {section.type === "reviews" && (
+                        <ReviewsSection
+                          section={section}
+                          config={config}
+                          isMobile={isMobile}
+                        />
+                      )}
 
-                              {/* Legend */}
-                              <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                                <span className="flex items-center gap-1.5">
-                                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
-                                  <span>Available</span>
-                                </span>
-                                <span className="flex items-center gap-1.5">
-                                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
-                                  <span>Reserved</span>
-                                </span>
-                                <span className="flex items-center gap-1.5">
-                                  <span
-                                    className="w-2.5 h-2.5 rounded-full border-2"
-                                    style={{ borderColor: config.primaryColor }}
-                                  />
-                                  <span>Selected</span>
-                                </span>
-                              </div>
-                            </div>
+                      {/* SECTION 7: HOURS & LOCATION */}
+                      {section.type === "hours_location" && (
+                        <HoursLocationSection
+                          section={section}
+                          config={config}
+                          isMobile={isMobile}
+                        />
+                      )}
 
-                            {/* Architectural Blueprint Canvas */}
-                            <div className="relative w-full rounded-2xl bg-[#090d16] border border-white/10 p-4 md:p-6 overflow-hidden shadow-2xl">
-                              {/* Grid Texture */}
-                              <div
-                                className="absolute inset-0 opacity-15 pointer-events-none"
-                                style={{
-                                  backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.2) 1px, transparent 0)`,
-                                  backgroundSize: "24px 24px",
-                                }}
-                              />
-
-                              {/* Architectural Boundaries & Walls */}
-                              <div className="relative z-10 w-full min-h-[380px] md:min-h-[460px] border border-dashed border-white/20 rounded-xl p-3 flex flex-col justify-between">
-                                {/* Top Wall */}
-                                <div className="flex items-center justify-between text-[10px] uppercase font-mono tracking-widest text-slate-500 border-b border-white/10 pb-1">
-                                  <span className="flex items-center gap-1">🪟 PANORAMIC WINDOW BOOTHS</span>
-                                  <span className="text-amber-400/80">VIP PRIVATE SUITE (BOOTH 8) →</span>
-                                </div>
-
-                                {/* Tables Area */}
-                                <div className="relative flex-1 min-h-[300px] md:min-h-[380px] my-2">
-                                  {/* Kitchen Marker */}
-                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 w-24 md:w-28 h-32 md:h-36 border border-white/10 rounded-lg bg-white/[0.02] p-2 flex flex-col items-center justify-center text-center pointer-events-none">
-                                    <ChefHat className="w-5 h-5 text-slate-600 mb-1" />
-                                    <span className="text-[10px] font-mono text-slate-500 uppercase font-bold">
-                                      KITCHEN
-                                    </span>
-                                    <span className="text-[8px] text-slate-600">Staff Pass Only</span>
-                                  </div>
-
-                                  {/* Tables */}
-                                  {filteredTables.map((table) => {
-                                    const isSelected = selectedTableId === table.id;
-                                    const isReserved = table.status === "reserved";
-
-                                    return (
-                                      <div
-                                        key={table.id}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (isReserved) {
-                                            toast.error(
-                                              `${table.name} is booked for the current time slot. Choose an available table.`
-                                            );
-                                            return;
-                                          }
-                                          setSelectedTableId(table.id);
-                                          toast.success(
-                                            `Selected ${table.name} (${table.seats} Seats • ${table.zone})`
-                                          );
-                                        }}
-                                        className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 group select-none ${
-                                          table.shape === "bar"
-                                            ? "w-28 md:w-36 h-12 md:h-14"
-                                            : table.seats >= 6
-                                            ? "w-20 md:w-24 h-16 md:h-20"
-                                            : "w-16 md:w-18 h-14 md:h-16"
-                                        }`}
-                                        style={{
-                                          left: `${table.x}%`,
-                                          top: `${table.y}%`,
-                                        }}
-                                      >
-                                        <div
-                                          className={`w-full h-full rounded-xl border flex flex-col items-center justify-center p-1 relative transition-all ${
-                                            isSelected
-                                              ? "shadow-xl ring-4 ring-offset-2 ring-offset-[#090d16] scale-105"
-                                              : isReserved
-                                              ? "bg-slate-900/60 border-rose-500/40 opacity-70"
-                                              : "bg-[#141a24] border-white/20 hover:border-emerald-400/80 hover:scale-105 shadow-md"
-                                          }`}
-                                          style={
-                                            isSelected
-                                              ? {
-                                                  backgroundColor: `${config.primaryColor}25`,
-                                                  borderColor: config.primaryColor,
-                                                  boxShadow: `0 0 25px ${config.primaryColor}50`,
-                                                }
-                                              : {}
-                                          }
-                                        >
-                                          {/* Chairs Around Table */}
-                                          {table.shape !== "bar" && (
-                                            <>
-                                              <div className="absolute -top-1.5 inset-x-2 flex justify-around pointer-events-none">
-                                                {[...Array(Math.ceil(table.seats / 2))].map((_, i) => (
-                                                  <span
-                                                    key={i}
-                                                    className="w-1.5 h-1.5 rounded-full bg-slate-500/80"
-                                                  />
-                                                ))}
-                                              </div>
-                                              <div className="absolute -bottom-1.5 inset-x-2 flex justify-around pointer-events-none">
-                                                {[...Array(Math.floor(table.seats / 2))].map((_, i) => (
-                                                  <span
-                                                    key={i}
-                                                    className="w-1.5 h-1.5 rounded-full bg-slate-500/80"
-                                                  />
-                                                ))}
-                                              </div>
-                                            </>
-                                          )}
-
-                                          {/* Label & Capacity */}
-                                          <div className="text-[11px] font-bold text-white leading-tight flex items-center gap-1">
-                                            <span>{table.name}</span>
-                                            {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
-                                          </div>
-                                          <div className="text-[9px] text-slate-400 font-mono">
-                                            {table.shape === "bar" ? "5 Stools" : `${table.seats} Seats`}
-                                          </div>
-
-                                          <span
-                                            className={`text-[8px] font-bold uppercase px-1.5 py-0.2 rounded mt-0.5 ${
-                                              isReserved
-                                                ? "bg-rose-500/20 text-rose-400"
-                                                : isSelected
-                                                ? "bg-emerald-500/20 text-emerald-300"
-                                                : "bg-white/10 text-slate-300"
-                                            }`}
-                                          >
-                                            {isReserved ? "Booked" : isSelected ? "Selected" : "Open"}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                {/* Bottom Wall */}
-                                <div className="flex items-center justify-between text-[10px] uppercase font-mono tracking-widest text-slate-500 border-t border-white/10 pt-1">
-                                  <span>← COURTYARD PATIO</span>
-                                  <span className="flex items-center gap-1 text-emerald-400">
-                                    🚪 MAIN ENTRANCE & FOYER
-                                  </span>
-                                  <span>RESTROOMS 🚻</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Active Table Booking Action Card */}
-                            {activeTable && (
-                              <div
-                                className="rounded-2xl border border-white/15 p-5 md:p-6 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6"
-                                style={{ backgroundColor: `${config.cardColor || "#161b22"}e6` }}
-                              >
-                                <div className="space-y-2 text-left w-full md:w-auto">
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="w-2.5 h-2.5 rounded-full animate-ping"
-                                      style={{ backgroundColor: config.primaryColor }}
-                                    />
-                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                                      Selected for Reservation:
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center gap-3">
-                                    <h3 className="text-xl md:text-2xl font-extrabold text-white">
-                                      {activeTable.name}
-                                    </h3>
-                                    <span
-                                      className="text-xs px-2.5 py-0.5 rounded-full font-bold uppercase"
-                                      style={{
-                                        backgroundColor: `${config.primaryColor}25`,
-                                        color: config.primaryColor,
-                                      }}
-                                    >
-                                      {activeTable.zone}
-                                    </span>
-                                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-medium">
-                                      Up to {activeTable.seats} Guests
-                                    </span>
-                                  </div>
-
-                                  <p className="text-xs text-slate-300">
-                                    Includes complimentary tea service, dedicated table server, and immediate seating upon arrival.
-                                  </p>
-                                </div>
-
-                                <div className="flex flex-col gap-1.5 w-full md:w-auto">
-                                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Select Time:
-                                  </span>
-                                  <div className="flex items-center gap-1.5">
-                                    {["17:00", "18:30", "19:30", "20:30", "21:30"].map((t) => (
-                                      <button
-                                        key={t}
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedTimeSlot(t);
-                                        }}
-                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                          selectedTimeSlot === t
-                                            ? "text-white shadow-lg"
-                                            : "bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5"
-                                        }`}
-                                        style={
-                                          selectedTimeSlot === t
-                                            ? { backgroundColor: config.primaryColor }
-                                            : {}
-                                        }
-                                      >
-                                        {t}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toast.success(
-                                      `🎉 ${activeTable.name} reserved for ${selectedTimeSlot}! Instant SMS & WhatsApp confirmation sent.`
-                                    );
-                                  }}
-                                  className="w-full md:w-auto px-8 py-3.5 rounded-xl font-bold text-sm text-white shadow-2xl transition-transform hover:scale-105 shrink-0 cursor-pointer"
-                                  style={{ backgroundColor: config.primaryColor }}
-                                >
-                                  Confirm {activeTable.name} ({selectedTimeSlot})
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {/* SECTION 4: TABLE RESERVATION */}
+                      {/* SECTION 8: TABLE BOOKING FORM */}
                       {section.type === "booking" && (
                         <div
-                          className={`max-w-2xl mx-auto rounded-2xl border border-white/10 bg-[#141a24]/80 backdrop-blur-md shadow-2xl space-y-4 ${
-                            isMobile ? "p-4" : "p-6 md:p-8 space-y-6"
-                          }`}
+                          className={`max-w-2xl mx-auto border border-white/10 bg-[#141a24]/80 backdrop-blur-md shadow-2xl space-y-4 ${
+                            getRadiusClass(config.borderRadius, "card")
+                          } ${isMobile ? "p-4" : "p-6 md:p-8 space-y-6"}`}
                         >
                           <div className="text-center space-y-1">
                             <span
@@ -2028,7 +1291,9 @@ export default function WebsiteBuilderPage() {
                             >
                               {section.title}
                             </h2>
-                            <p className="text-[11px] text-slate-400">{section.content}</p>
+                            <p className="text-[11px] text-slate-400">
+                              {typeof section.content === "string" ? section.content : ""}
+                            </p>
                           </div>
 
                           <div
@@ -2038,7 +1303,7 @@ export default function WebsiteBuilderPage() {
                           >
                             <div>
                               <label className="text-slate-400 block mb-1 text-[11px]">Guests</label>
-                              <select className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white text-xs">
+                              <select className={`w-full bg-[#0d1117] border border-white/10 p-2 text-white text-xs ${getRadiusClass(config.borderRadius, "input")}`}>
                                 <option>2 Guests (Romantic)</option>
                                 <option>4 Guests (Family)</option>
                                 <option>6-8 Guests (Celebration)</option>
@@ -2050,12 +1315,12 @@ export default function WebsiteBuilderPage() {
                               <input
                                 type="date"
                                 defaultValue={new Date().toISOString().split("T")[0]}
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white text-xs"
+                                className={`w-full bg-[#0d1117] border border-white/10 p-2 text-white text-xs ${getRadiusClass(config.borderRadius, "input")}`}
                               />
                             </div>
                             <div className={isMobile ? "" : "col-span-2 md:col-span-1"}>
                               <label className="text-slate-400 block mb-1 text-[11px]">Time Slot</label>
-                              <select className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white text-xs">
+                              <select className={`w-full bg-[#0d1117] border border-white/10 p-2 text-white text-xs ${getRadiusClass(config.borderRadius, "input")}`}>
                                 <option>13:00 - Lunch</option>
                                 <option>18:30 - Dinner</option>
                                 <option>20:00 - Evening</option>
@@ -2064,105 +1329,19 @@ export default function WebsiteBuilderPage() {
                           </div>
 
                           <button
-                            className={`w-full rounded-xl font-bold text-white shadow-xl transition-transform hover:scale-[1.01] ${
-                              isMobile ? "py-2.5 text-xs" : "py-3 text-sm"
-                            }`}
+                            type="button"
+                            className={`w-full font-bold text-white shadow-xl transition-transform hover:scale-[1.01] cursor-pointer ${
+                              getRadiusClass(config.borderRadius, "button")
+                            } ${isMobile ? "py-2.5 text-xs" : "py-3 text-sm"}`}
                             style={{ backgroundColor: config.primaryColor }}
+                            onClick={() => toast.success("Reservation request sent!")}
                           >
                             {section.meta?.buttonText || "Confirm Table Reservation"}
                           </button>
                         </div>
                       )}
 
-                      {/* SECTION 5: CUSTOMER REVIEWS */}
-                      {section.type === "reviews" && (
-                        <div className="space-y-4">
-                          <div className="text-center max-w-xl mx-auto space-y-1">
-                            <span
-                              className="text-[10px] font-bold uppercase tracking-widest"
-                              style={{ color: config.primaryColor }}
-                            >
-                              {section.subtitle || "GUEST EXPERIENCES"}
-                            </span>
-                            <h2
-                              className={`font-bold text-white tracking-tight ${
-                                isMobile ? "text-xl" : "text-2xl md:text-3xl"
-                              }`}
-                            >
-                              {section.title}
-                            </h2>
-                            <p className="text-[11px] text-slate-400">{section.content}</p>
-                          </div>
-
-                          <div
-                            className={`grid gap-3 ${
-                              isMobile ? "grid-cols-1" : "grid-cols-1 md:grid-cols-3 gap-4"
-                            }`}
-                          >
-                            {(section.meta?.items || []).map((rev, i) => (
-                              <div
-                                key={i}
-                                className="rounded-xl border border-white/10 p-4 bg-slate-900/50 flex flex-col justify-between space-y-3"
-                              >
-                                <div className="flex items-center gap-1 text-amber-400">
-                                  {[...Array(5)].map((_, starI) => (
-                                    <Star key={starI} className="w-3.5 h-3.5 fill-amber-400" />
-                                  ))}
-                                </div>
-                                <p className="text-[11px] text-slate-300 italic leading-relaxed">
-                                  "{rev.desc}"
-                                </p>
-                                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px]">
-                                  <span className="font-bold text-white">{rev.title}</span>
-                                  <span className="text-[10px] text-emerald-400 font-semibold">{rev.tag}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* SECTION 6: HOURS & LOCATION */}
-                      {section.type === "hours_location" && (
-                        <div
-                          className={`rounded-2xl border border-white/10 bg-slate-900/40 flex flex-col items-start gap-4 ${
-                            isMobile ? "p-4" : "md:flex-row md:items-center justify-between p-6 md:p-8 gap-6"
-                          }`}
-                        >
-                          <div className="space-y-1.5 w-full">
-                            <span
-                              className="text-[10px] font-bold uppercase tracking-widest"
-                              style={{ color: config.primaryColor }}
-                            >
-                              {section.subtitle || "FIND US"}
-                            </span>
-                            <h2
-                              className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}
-                            >
-                              {section.title}
-                            </h2>
-                            <p className="text-[11px] text-slate-400">{section.content}</p>
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-300 pt-1">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-amber-400" /> 10:00 - 23:00 Daily
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Phone className="w-3 h-3 text-emerald-400" /> +998 71 200 00 00
-                              </span>
-                            </div>
-                          </div>
-
-                          <button
-                            className={`rounded-xl font-bold text-xs text-white border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${
-                              isMobile ? "w-full py-2.5 text-center" : "px-6 py-3"
-                            }`}
-                          >
-                            Open in Maps
-                          </button>
-                        </div>
-                      )}
-
-                      {/* SECTION 7: PHOTO GALLERY */}
+                      {/* SECTION 9: PHOTO GALLERY */}
                       {section.type === "gallery" && (
                         <div className="space-y-3">
                           <div className="text-center max-w-xl mx-auto space-y-1">
@@ -2172,9 +1351,7 @@ export default function WebsiteBuilderPage() {
                             >
                               {section.subtitle || "GALLERY"}
                             </span>
-                            <h2
-                              className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}
-                            >
+                            <h2 className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}>
                               {section.title}
                             </h2>
                           </div>
@@ -2187,9 +1364,9 @@ export default function WebsiteBuilderPage() {
                             {PHOTO_PRESETS.slice(0, 4).map((img, i) => (
                               <div
                                 key={i}
-                                className={`rounded-xl bg-cover bg-center border border-white/10 overflow-hidden hover:scale-[1.02] transition-transform ${
-                                  isMobile ? "h-28" : "h-36"
-                                }`}
+                                className={`bg-cover bg-center border border-white/10 overflow-hidden hover:scale-[1.02] transition-transform ${
+                                  getRadiusClass(config.borderRadius, "card")
+                                } ${isMobile ? "h-28" : "h-36"}`}
                                 style={{ backgroundImage: `url(${img.url})` }}
                               />
                             ))}
@@ -2197,7 +1374,7 @@ export default function WebsiteBuilderPage() {
                         </div>
                       )}
 
-                      {/* SECTION 8: FAQ */}
+                      {/* SECTION 10: FAQ */}
                       {section.type === "faq" && (
                         <div className="max-w-2xl mx-auto space-y-3">
                           <div className="text-center space-y-1">
@@ -2207,19 +1384,17 @@ export default function WebsiteBuilderPage() {
                             >
                               {section.subtitle || "FAQ"}
                             </span>
-                            <h2
-                              className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}
-                            >
+                            <h2 className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}>
                               {section.title}
                             </h2>
                           </div>
 
                           <div className="space-y-2 text-xs">
-                            <div className="p-3 rounded-lg border border-white/10 bg-slate-900/60">
+                            <div className={`p-3 border border-white/10 bg-slate-900/60 ${getRadiusClass(config.borderRadius, "card")}`}>
                               <p className="font-bold text-white mb-1">Is all meat Halal certified?</p>
                               <p className="text-slate-400">Yes, 100% of our lamb, beef, and poultry are certified Halal from verified local farms.</p>
                             </div>
-                            <div className="p-3 rounded-lg border border-white/10 bg-slate-900/60">
+                            <div className={`p-3 border border-white/10 bg-slate-900/60 ${getRadiusClass(config.borderRadius, "card")}`}>
                               <p className="font-bold text-white mb-1">How fast is delivery?</p>
                               <p className="text-slate-400">Our couriers deliver fresh piping hot food within 35 minutes across Tashkent.</p>
                             </div>
@@ -2227,28 +1402,28 @@ export default function WebsiteBuilderPage() {
                         </div>
                       )}
 
-                      {/* SECTION 9: CTA BANNER */}
+                      {/* SECTION 11: CTA BANNER */}
                       {section.type === "cta" && (
                         <div
-                          className={`rounded-2xl text-center space-y-3 text-white shadow-2xl relative overflow-hidden ${
-                            isMobile ? "p-5" : "p-8 space-y-4"
-                          }`}
+                          className={`text-center space-y-3 text-white shadow-2xl relative overflow-hidden ${
+                            getRadiusClass(config.borderRadius, "card")
+                          } ${isMobile ? "p-5" : "p-8 space-y-4"}`}
                           style={{
                             background: `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor || "#e11d48"})`,
                           }}
                         >
-                          <h2
-                            className={`font-extrabold ${isMobile ? "text-xl" : "text-3xl"}`}
-                          >
+                          <h2 className={`font-extrabold ${isMobile ? "text-xl" : "text-3xl"}`}>
                             {section.title}
                           </h2>
                           <p className={`opacity-90 max-w-lg mx-auto ${isMobile ? "text-xs" : "text-sm"}`}>
-                            {section.content}
+                            {typeof section.content === "string" ? section.content : ""}
                           </p>
                           <button
-                            className={`rounded-xl font-bold bg-black text-white hover:bg-slate-900 shadow-xl transition-transform hover:scale-105 ${
-                              isMobile ? "w-full py-2.5 text-xs" : "px-8 py-3 text-sm"
-                            }`}
+                            type="button"
+                            className={`font-bold bg-black text-white hover:bg-slate-900 shadow-xl transition-transform hover:scale-105 cursor-pointer ${
+                              getRadiusClass(config.borderRadius, "button")
+                            } ${isMobile ? "w-full py-2.5 text-xs" : "px-8 py-3 text-sm"}`}
+                            onClick={() => toast.success("CTA button clicked")}
                           >
                             {section.meta?.buttonText || "Order Online Now"}
                           </button>
@@ -2537,102 +1712,182 @@ export default function WebsiteBuilderPage() {
                   </div>
                 </div>
 
-                {/* Section List */}
-                <div className="space-y-2">
+                {/* Drag-and-Drop Reorder Section List */}
+                <Reorder.Group
+                  axis="y"
+                  values={config.sections}
+                  onReorder={(newOrder) => {
+                    updateConfigWithHistory({ ...config, sections: newOrder });
+                  }}
+                  className="space-y-2"
+                >
                   {config.sections.map((section, idx) => (
-                    <div
+                    <Reorder.Item
                       key={section.id}
-                      onClick={() => {
-                        setSelectedSectionId(section.id);
-                        setActiveDrawer("inspector");
-                      }}
-                      className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-all cursor-pointer ${
+                      value={section}
+                      className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-colors cursor-pointer select-none ${
                         selectedSectionId === section.id
-                          ? "border-[#f98b25] bg-[#f98b25]/10 text-white"
+                          ? "border-[#f98b25] bg-[#f98b25]/10 text-white shadow-md"
                           : section.enabled
                           ? "border-white/10 bg-[#141a24] text-slate-200 hover:border-white/20"
                           : "border-white/5 bg-slate-900/40 text-slate-500 opacity-60"
                       }`}
+                      onClick={() => {
+                        setSelectedSectionId(section.id);
+                        setActiveDrawer("inspector");
+                      }}
                     >
                       <div className="flex items-center gap-2.5 overflow-hidden">
-                        <GripVertical className="w-4 h-4 text-slate-500 shrink-0" />
+                        <GripVertical className="w-4 h-4 text-slate-500 shrink-0 cursor-grab active:cursor-grabbing hover:text-white transition-colors" />
                         <span className="font-semibold truncate">{section.title}</span>
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             moveSection(idx, "up");
                           }}
                           disabled={idx === 0}
-                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20"
+                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20 cursor-pointer"
+                          title="Move Up"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             moveSection(idx, "down");
                           }}
                           disabled={idx === config.sections.length - 1}
-                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20"
+                          className="p-1 hover:text-[#f98b25] text-slate-400 disabled:opacity-20 cursor-pointer"
+                          title="Move Down"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleSection(section.id);
                           }}
-                          className="p-1 hover:text-white text-slate-400"
+                          className="p-1 hover:text-white text-slate-400 cursor-pointer"
+                          title={section.enabled ? "Hide Section" : "Show Section"}
                         >
-                          {section.enabled ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          {section.enabled ? (
+                            <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          )}
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             deleteSection(section.id);
                           }}
-                          className="p-1 hover:text-rose-400 text-slate-400"
+                          className="p-1 hover:text-rose-400 text-slate-400 cursor-pointer"
+                          title="Delete Section"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                    </div>
+                    </Reorder.Item>
                   ))}
-                </div>
+                </Reorder.Group>
 
-                {/* Add Block Palette */}
+                {/* Add Block Palette — All 7 Modular Sections + Utilities */}
                 <div className="pt-4 border-t border-white/10 space-y-2">
                   <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                     Add Section to Page
                   </h4>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <button
-                      onClick={() => handleAddSection("booking")}
-                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2"
+                      type="button"
+                      onClick={() => handleAddSection("hero")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Sparkles className="w-4 h-4 text-[#f98b25]" />
+                      <span>Hero Banner</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddSection("about")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <FileText className="w-4 h-4 text-[#f98b25]" />
+                      <span>Brand Story</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddSection("menu")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Utensils className="w-4 h-4 text-[#f98b25]" />
+                      <span>Menu Showcase</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddSection("table_selection")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
                     >
                       <Calendar className="w-4 h-4 text-[#f98b25]" />
+                      <span>Floor Plan Map</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddSection("highlights")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <ChefHat className="w-4 h-4 text-[#f98b25]" />
+                      <span>Chef Highlights</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddSection("reviews")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Star className="w-4 h-4 text-[#f98b25]" />
+                      <span>Guest Reviews</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddSection("hours_location")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <MapPin className="w-4 h-4 text-[#f98b25]" />
+                      <span>Hours & Location</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddSection("booking")}
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Clock className="w-4 h-4 text-[#f98b25]" />
                       <span>Table Booking</span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleAddSection("gallery")}
-                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2"
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
                     >
                       <ImageIcon className="w-4 h-4 text-[#f98b25]" />
                       <span>Photo Gallery</span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleAddSection("faq")}
-                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2"
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
                     >
                       <HelpCircle className="w-4 h-4 text-[#f98b25]" />
                       <span>FAQ Section</span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleAddSection("cta")}
-                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2"
+                      className="p-2.5 rounded-lg border border-white/10 bg-[#141a24] hover:border-[#f98b25] text-left flex items-center gap-2 cursor-pointer transition-colors"
                     >
                       <Megaphone className="w-4 h-4 text-[#f98b25]" />
                       <span>CTA Banner</span>
@@ -2689,7 +1944,11 @@ export default function WebsiteBuilderPage() {
                     <Label className="text-xs text-slate-300">Description / Content</Label>
                     <Textarea
                       rows={3}
-                      value={selectedSection.content}
+                      value={
+                        typeof selectedSection.content === "string"
+                          ? selectedSection.content
+                          : JSON.stringify(selectedSection.content, null, 2)
+                      }
                       onChange={(e) => {
                         const val = e.target.value;
                         updateConfigWithHistory({
@@ -2806,6 +2065,7 @@ export default function WebsiteBuilderPage() {
                     {THEME_PRESETS.map((t, idx) => (
                       <button
                         key={idx}
+                        type="button"
                         onClick={() => {
                           updateConfigWithHistory({
                             ...config,
@@ -2814,10 +2074,11 @@ export default function WebsiteBuilderPage() {
                             backgroundColor: t.bg,
                             cardColor: t.card,
                             fontFamily: t.font,
+                            borderRadius: t.borderRadius || "rounded",
                           });
                           toast.success(`Applied ${t.name} Theme`);
                         }}
-                        className="p-2.5 rounded-xl border border-white/10 bg-[#141a24] hover:border-white/25 text-left space-y-2"
+                        className="p-2.5 rounded-xl border border-white/10 bg-[#141a24] hover:border-white/25 text-left space-y-2 cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-1.5">
                           <span
@@ -2834,6 +2095,70 @@ export default function WebsiteBuilderPage() {
                           />
                         </div>
                         <span className="text-xs font-semibold text-white block">{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Border Radius Design Token Selector */}
+                <div className="space-y-2 pt-3 border-t border-white/10">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-slate-300 uppercase tracking-wider font-bold">
+                      Border Radius Scale
+                    </Label>
+                    <span className="text-[10px] text-amber-400 font-mono font-bold uppercase">
+                      {config.borderRadius || "rounded"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      {
+                        value: "sharp" as const,
+                        label: "Sharp",
+                        sub: "0px",
+                        previewClass: "rounded-none",
+                      },
+                      {
+                        value: "rounded" as const,
+                        label: "Rounded",
+                        sub: "12px",
+                        previewClass: "rounded-lg",
+                      },
+                      {
+                        value: "pill" as const,
+                        label: "Pill",
+                        sub: "9999px",
+                        previewClass: "rounded-full",
+                      },
+                    ].map((r) => (
+                      <button
+                        key={r.value}
+                        type="button"
+                        onClick={() => {
+                          updateConfigWithHistory({ ...config, borderRadius: r.value });
+                          toast.info(`Border Radius: ${r.label} (${r.sub})`);
+                        }}
+                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                          config.borderRadius === r.value
+                            ? "border-[#f98b25] bg-[#f98b25]/15 text-white shadow-md font-bold"
+                            : "border-white/10 bg-[#141a24] text-slate-400 hover:text-white hover:border-white/20"
+                        }`}
+                      >
+                        <div className="flex justify-center mb-1.5">
+                          <div
+                            className={`w-8 h-4 border-2 ${r.previewClass}`}
+                            style={{
+                              borderColor:
+                                config.borderRadius === r.value ? config.primaryColor : "#64748b",
+                              backgroundColor:
+                                config.borderRadius === r.value
+                                  ? `${config.primaryColor}30`
+                                  : "transparent",
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs font-semibold leading-tight">{r.label}</div>
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">{r.sub}</div>
                       </button>
                     ))}
                   </div>
@@ -2888,8 +2213,9 @@ export default function WebsiteBuilderPage() {
                     ].map((f, i) => (
                       <button
                         key={i}
+                        type="button"
                         onClick={() => updateConfigWithHistory({ ...config, fontFamily: f.font })}
-                        className={`w-full p-2.5 rounded-lg border text-left text-xs transition-all ${
+                        className={`w-full p-2.5 rounded-lg border text-left text-xs transition-all cursor-pointer ${
                           config.fontFamily === f.font
                             ? "border-[#f98b25] bg-[#f98b25]/15 text-white font-bold"
                             : "border-white/10 bg-[#141a24] text-slate-300 hover:border-white/20"
