@@ -1,33 +1,9 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 
 function getGeminiApiKey(): string | undefined {
-  if (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes("your-")) {
-    return process.env.GEMINI_API_KEY;
-  }
-
-  try {
-    const envPaths = [
-      path.join(process.cwd(), ".env.local"),
-      path.join(process.cwd(), ".env"),
-      path.join(process.cwd(), "..", "Plately.app", "backend", ".env"),
-    ];
-    for (const p of envPaths) {
-      if (fs.existsSync(p)) {
-        const content = fs.readFileSync(p, "utf-8");
-        const match = content.match(/GEMINI_API_KEY=([^\r\n]+)/);
-        if (match && match[1]) {
-          const val = match[1].trim();
-          if (val && !val.includes("your-")) {
-            process.env.GEMINI_API_KEY = val;
-            return val;
-          }
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("[Transcribe] Could not read env file from disk:", e);
+  const key = process.env.GEMINI_API_KEY;
+  if (key && !key.includes("your-")) {
+    return key.trim();
   }
   return undefined;
 }
