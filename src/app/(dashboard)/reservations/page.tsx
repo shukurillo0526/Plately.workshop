@@ -7,12 +7,8 @@ import {
   Users,
   Phone,
   Plus,
-  CheckCircle2,
-  XCircle,
-  UserCheck,
   AlertCircle,
   Search,
-  Filter,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -154,7 +150,12 @@ export default function ReservationsPage() {
         .eq("restaurant_id", restaurantId)
         .order("reservation_time", { ascending: true });
 
-      if (!error && data && data.length > 0) {
+      if (error) {
+        toast.error("Failed to load reservations: " + error.message);
+        return;
+      }
+
+      if (data) {
         setReservations(
           data.map((r) => ({
             id: r.id,
@@ -168,12 +169,10 @@ export default function ReservationsPage() {
             createdAt: r.created_at,
           }))
         );
-      } else {
-        setReservations(SAMPLE_RESERVATIONS);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn("[Reservations] Load error:", err);
-      setReservations(SAMPLE_RESERVATIONS);
+      toast.error("Failed to load reservations");
     } finally {
       setIsLoading(false);
     }
@@ -219,7 +218,7 @@ export default function ReservationsPage() {
       partySize: Number(partySize) || 2,
       reservationTime: new Date(reservationTime).toISOString(),
       tableNumber: tableNumber.trim() || null,
-      status: "confirmed" as ReservationStatus,
+      status: "pending" as ReservationStatus,
       specialRequests: specialRequests.trim() || null,
     };
 
@@ -244,6 +243,7 @@ export default function ReservationsPage() {
         if (error) throw error;
 
         toast.success("Reservation confirmed!");
+        loadReservations();
       } catch (err: any) {
         toast.error(err?.message || "Failed to create reservation");
         return;
@@ -264,7 +264,6 @@ export default function ReservationsPage() {
     setReservationTime("");
     setTableNumber("");
     setSpecialRequests("");
-    loadReservations();
   };
 
   const filteredReservations = useMemo(() => {
@@ -349,8 +348,16 @@ export default function ReservationsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredReservations.map((res) => {
             const date = new Date(res.reservationTime);
-            const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-            const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
+            const timeStr = date.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "Asia/Tashkent",
+            });
+            const dateStr = date.toLocaleDateString([], {
+              month: "short",
+              day: "numeric",
+              timeZone: "Asia/Tashkent",
+            });
             const config = STATUS_CONFIG[res.status];
 
             return (

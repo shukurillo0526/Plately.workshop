@@ -4,10 +4,11 @@ import React from 'react';
 import { Printer } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ThermalReceipt } from './thermal-receipt';
+import { ThermalReceipt, type ReceiptOrder } from './thermal-receipt';
+import type { KDSOrder } from '@/stores/kds-store';
 
 export interface PrintReceiptDialogProps {
-  order: any | null; // Accepting Order | KDSOrder
+  order: ReceiptOrder | KDSOrder | any | null; // Accepting ReceiptOrder | KDSOrder
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -17,12 +18,14 @@ export function PrintReceiptDialog({ order, open, onOpenChange }: PrintReceiptDi
     window.print();
   };
 
+  const orderNumber = order?.orderNumber || order?.order_number || '';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] bg-[#0D1117] text-white border-zinc-800">
         <DialogHeader>
           <DialogTitle className="flex justify-between items-center text-white">
-            <span>Order Receipt - {order?.orderNumber}</span>
+            <span>Order Receipt - {orderNumber}</span>
           </DialogTitle>
         </DialogHeader>
         

@@ -77,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const restaurantName = user?.restaurant_name ?? 'My Restaurant';
   
   let initials = 'PL';
-  if (user?.display_name) {
+  if (user?.display_name && user.display_name.trim().length > 0) {
     const parts = user.display_name.trim().split(/\s+/);
     if (parts.length >= 2) {
       initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();

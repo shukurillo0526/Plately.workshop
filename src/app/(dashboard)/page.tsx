@@ -19,10 +19,8 @@ import {
   Globe,
   PhoneCall,
   Calendar,
-  AlertTriangle,
   MoveUp,
   MoveDown,
-  Eye,
   SlidersHorizontal,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
@@ -61,14 +59,16 @@ interface RecentOrder {
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const [stats, setStats] = useState<DashboardStats>({
-    revenueToday: 2450000,
-    ordersToday: 142,
-    avgPrepTime: '14m 20s',
-    activeOrdersCount: 28,
+    revenueToday: 0,
+    ordersToday: 0,
+    avgPrepTime: '—',
+    activeOrdersCount: 0,
   });
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [menuCount, setMenuCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [kdsCounts, setKdsCounts] = useState({ confirmed: 0, preparing: 0, ready: 0, dispatched: 0 });
+  const [todayReservations, setTodayReservations] = useState<Array<{ name: string; time: string; party: number; table: string }>>([]);
 
   // Part B5: Customizable Window Workspace State
   const [activePreset, setActivePreset] = useState<WorkspacePreset>('default');
@@ -118,31 +118,79 @@ export default function DashboardPage() {
         const rev = valid.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
         const active = todayOrders.filter((o) => ['confirmed', 'preparing', 'ready', 'dispatched'].includes(o.status)).length;
 
+        // Calculate real avg prep time from completed orders
+        let avgPrepStr = '—';
+        const completedWithTimes = valid.filter((o) => o.status === 'completed' && o.preparing_at && o.ready_at);
+        if (completedWithTimes.length > 0) {
+          const totalPrepMs = completedWithTimes.reduce((acc, o) => {
+            return acc + (new Date(o.ready_at).getTime() - new Date(o.preparing_at).getTime());
+          }, 0);
+          const avgMs = totalPrepMs / completedWithTimes.length;
+          const avgMins = Math.floor(avgMs / 60000);
+          const avgSecs = Math.floor((avgMs % 60000) / 1000);
+          avgPrepStr = `${avgMins}m ${String(avgSecs).padStart(2, '0')}s`;
+        }
+
         setStats({
           revenueToday: rev,
           ordersToday: todayOrders.length,
-          avgPrepTime: '15m 00s',
+          avgPrepTime: avgPrepStr,
           activeOrdersCount: active,
         });
 
-        if (todayOrders.length > 0) {
-          setRecentOrders(
-            todayOrders.slice(0, 5).map((o) => {
-              let summary = 'Dishes';
-              if (Array.isArray(o.items) && o.items.length > 0) {
-                summary = `${o.items.length} item${o.items.length > 1 ? 's' : ''}`;
-              }
-              return {
-                id: o.id,
-                orderNumber: o.order_number || `ORD-${String(o.id).slice(0, 5)}`,
-                itemsSummary: `${summary} • ${o.type || 'Order'}`,
-                type: o.type || 'delivery',
-                total: Number(o.total) || 0,
-                status: o.status || 'confirmed',
-              };
-            })
-          );
-        }
+        // Compute real KDS counts
+        setKdsCounts({
+          confirmed: todayOrders.filter((o) => o.status === 'confirmed').length,
+          preparing: todayOrders.filter((o) => o.status === 'preparing').length,
+          ready: todayOrders.filter((o) => o.status === 'ready').length,
+          dispatched: todayOrders.filter((o) => o.status === 'dispatched' || o.status === 'delivering').length,
+        });
+
+        setRecentOrders(
+          todayOrders.slice(0, 5).map((o) => {
+            let summary = 'Dishes';
+            if (Array.isArray(o.items) && o.items.length > 0) {
+              summary = `${o.items.length} item${o.items.length > 1 ? 's' : ''}`;
+            }
+            return {
+              id: o.id,
+              orderNumber: o.order_number || `ORD-${String(o.id).slice(0, 5)}`,
+              itemsSummary: `${summary} • ${o.type || 'Order'}`,
+              type: o.type || 'delivery',
+              total: Number(o.total) || 0,
+              status: o.status || 'confirmed',
+            };
+          })
+        );
+      }
+
+      // 3. Fetch today's reservations
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      const { data: resData } = await supabase
+        .from('reservations')
+        .select('customer_name, reservation_time, party_size, table_number, status')
+        .eq('restaurant_id', restaurantId)
+        .gte('reservation_time', startOfToday.toISOString())
+        .lte('reservation_time', endOfToday.toISOString())
+        .in('status', ['pending', 'confirmed'])
+        .order('reservation_time', { ascending: true })
+        .limit(5);
+
+      if (resData && resData.length > 0) {
+        setTodayReservations(
+          resData.map((r) => ({
+            name: r.customer_name || 'Guest',
+            time: new Date(r.reservation_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tashkent' }),
+            party: r.party_size || 2,
+            table: r.table_number || '—',
+          }))
+        );
+      } else {
+        setTodayReservations([]);
       }
     } catch (err) {
       console.warn('[Dashboard] Data fetch fallback:', err);
@@ -265,7 +313,7 @@ export default function DashboardPage() {
             Command Center
           </h1>
           <p className="text-sm text-gray-400 mt-1">
-            Welcome back to {user?.restaurant_name || 'Kamolon'}. Customizable operating system overview.
+            Welcome back{user?.restaurant_name ? ` to ${user.restaurant_name}` : ''}. Customizable operating system overview.
           </p>
         </div>
 
@@ -505,28 +553,28 @@ export default function DashboardPage() {
                   <div className="p-3 rounded-lg bg-[#0D1117] border border-amber-500/20 flex justify-between items-center">
                     <div>
                       <p className="text-slate-400 font-medium">New Orders</p>
-                      <p className="text-lg font-bold text-amber-400">4</p>
+                      <p className="text-lg font-bold text-amber-400">{kdsCounts.confirmed}</p>
                     </div>
                     <Badge className="bg-amber-500/10 text-amber-400 text-[10px]">Awaiting Accept</Badge>
                   </div>
                   <div className="p-3 rounded-lg bg-[#0D1117] border border-blue-500/20 flex justify-between items-center">
                     <div>
                       <p className="text-slate-400 font-medium">Cooking / Prep</p>
-                      <p className="text-lg font-bold text-blue-400">6</p>
+                      <p className="text-lg font-bold text-blue-400">{kdsCounts.preparing}</p>
                     </div>
                     <Badge className="bg-blue-500/10 text-blue-400 text-[10px]">Line Active</Badge>
                   </div>
                   <div className="p-3 rounded-lg bg-[#0D1117] border border-emerald-500/20 flex justify-between items-center">
                     <div>
                       <p className="text-slate-400 font-medium">Ready for Staging</p>
-                      <p className="text-lg font-bold text-emerald-400">2</p>
+                      <p className="text-lg font-bold text-emerald-400">{kdsCounts.ready}</p>
                     </div>
                     <Badge className="bg-emerald-500/10 text-emerald-400 text-[10px]">Expedite</Badge>
                   </div>
                   <div className="p-3 rounded-lg bg-[#0D1117] border border-purple-500/20 flex justify-between items-center">
                     <div>
                       <p className="text-slate-400 font-medium">Out with Couriers</p>
-                      <p className="text-lg font-bold text-purple-400">3</p>
+                      <p className="text-lg font-bold text-purple-400">{kdsCounts.dispatched}</p>
                     </div>
                     <Badge className="bg-purple-500/10 text-purple-400 text-[10px]">Delivering</Badge>
                   </div>
@@ -572,30 +620,11 @@ export default function DashboardPage() {
                         </div>
                       ))
                     ) : (
-                      [1, 2, 3, 4, 5].map((i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between py-3 border-b border-[rgba(255,255,255,0.04)] last:border-0"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-[#1c2333] flex items-center justify-center">
-                              <Utensils className="w-4 h-4 text-gray-500" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-white">
-                                PLT-{String(10240 + i).padStart(5, '0')}
-                              </p>
-                              <p className="text-xs text-gray-500">2 items • Delivery</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium font-[family-name:var(--font-mono)] text-white">
-                              {formatUZS(35000 + i * 12000)}
-                            </p>
-                            <p className="text-xs text-emerald-400">Completed</p>
-                          </div>
-                        </div>
-                      ))
+                      <div className="py-12 text-center">
+                        <ShoppingBag className="w-8 h-8 text-gray-600 mx-auto mb-3" />
+                        <p className="text-sm text-gray-400 font-medium">No orders today yet</p>
+                        <p className="text-xs text-gray-600 mt-1">Orders will appear here as they come in</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -669,27 +698,23 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="p-3 rounded-lg bg-[#0D1117] border border-white/5 space-y-1">
-                    <div className="flex justify-between font-bold text-white">
-                      <span>Otabek M.</span>
-                      <span className="text-amber-400">19:30</span>
+                  {todayReservations.length > 0 ? (
+                    todayReservations.map((res, idx) => (
+                      <div key={idx} className="p-3 rounded-lg bg-[#0D1117] border border-white/5 space-y-1">
+                        <div className="flex justify-between font-bold text-white">
+                          <span>{res.name}</span>
+                          <span className="text-amber-400">{res.time}</span>
+                        </div>
+                        <p className="text-slate-400">Party of {res.party} • Table {res.table}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-3 py-6 text-center">
+                      <Calendar className="w-6 h-6 text-gray-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">No reservations today</p>
+                      <p className="text-xs text-gray-600 mt-0.5">Bookings will appear here automatically</p>
                     </div>
-                    <p className="text-slate-400">Party of 4 • Table T-04 (Window)</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#0D1117] border border-white/5 space-y-1">
-                    <div className="flex justify-between font-bold text-white">
-                      <span>Dilfuza K.</span>
-                      <span className="text-amber-400">20:00</span>
-                    </div>
-                    <p className="text-slate-400">Party of 2 • Table T-02</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#0D1117] border border-white/5 space-y-1">
-                    <div className="flex justify-between font-bold text-white">
-                      <span>Azamat Sh.</span>
-                      <span className="text-amber-400">21:15</span>
-                    </div>
-                    <p className="text-slate-400">Party of 6 • VIP-1 (Pre-ordered Osh)</p>
-                  </div>
+                  )}
                 </div>
               </div>
             );

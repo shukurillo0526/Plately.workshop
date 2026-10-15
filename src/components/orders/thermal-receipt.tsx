@@ -2,24 +2,36 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 export interface ReceiptItem {
-  id: string | number;
+  id?: string | number;
+  menu_item_id?: string;
   name: string;
   quantity: number;
-  price: number;
-  specialInstructions?: string;
+  price?: number;
+  specialInstructions?: string | null;
+  special_instructions?: string | null;
 }
 
 export interface ReceiptOrder {
   id: string | number;
-  orderNumber: string;
-  customerName: string;
+  orderNumber?: string;
+  order_number?: string;
+  customerName?: string;
+  customer_name?: string;
   customerPhone?: string;
-  orderType: string;
-  items: ReceiptItem[];
-  subtotal: number;
-  deliveryFee: number;
-  total: number;
-  createdAt: string;
+  customer_phone?: string;
+  orderType?: string;
+  order_type?: string;
+  items: (ReceiptItem | any)[];
+  subtotal?: number;
+  deliveryFee?: number;
+  delivery_fee?: number;
+  deliveryAddress?: string | null;
+  delivery_address?: string | null;
+  total?: number;
+  createdAt?: string;
+  created_at?: string;
+  specialInstructions?: string | null;
+  special_instructions?: string | null;
 }
 
 export interface ThermalReceiptProps {
@@ -34,6 +46,33 @@ function formatUZS(amount: number) {
 export const ThermalReceipt = React.forwardRef<HTMLDivElement, ThermalReceiptProps>(
   ({ order, className }, ref) => {
     if (!order) return null;
+
+    const orderNumber = order.orderNumber || order.order_number || String(order.id || '');
+    const customerName = order.customerName || order.customer_name || 'Guest';
+    const customerPhone = order.customerPhone || order.customer_phone;
+    const orderType = (order.orderType || order.order_type || '').toUpperCase();
+    const deliveryAddress = order.deliveryAddress || order.delivery_address;
+    const specialInstructions = order.specialInstructions || order.special_instructions;
+
+    const createdAt = order.createdAt || order.created_at;
+    let formattedDate = 'N/A';
+    if (createdAt) {
+      try {
+        const d = new Date(createdAt);
+        formattedDate = isNaN(d.getTime())
+          ? String(createdAt)
+          : d.toLocaleString('en-US', {
+              hour12: false,
+              timeZone: 'Asia/Tashkent',
+            });
+      } catch {
+        formattedDate = String(createdAt);
+      }
+    }
+
+    const deliveryFee = order.deliveryFee ?? order.delivery_fee ?? 0;
+    const subtotal = order.subtotal ?? (order.total != null ? order.total - deliveryFee : 0);
+    const total = order.total ?? (subtotal + deliveryFee);
 
     return (
       <div 
@@ -71,29 +110,30 @@ export const ThermalReceipt = React.forwardRef<HTMLDivElement, ThermalReceiptPro
           
           <div className="flex justify-between mb-1">
             <span>Order #:</span>
-            <span className="font-bold">{order.orderNumber}</span>
+            <span className="font-bold">{orderNumber}</span>
           </div>
           <div className="flex justify-between mb-1">
             <span>Date:</span>
-            <span>
-              {new Date(order.createdAt).toLocaleString('en-US', { 
-                hour12: false, 
-                timeZone: 'Asia/Tashkent' 
-              })}
-            </span>
+            <span>{formattedDate}</span>
           </div>
           <div className="flex justify-between mb-1">
             <span>Type:</span>
-            <span>{order.orderType}</span>
+            <span>{orderType}</span>
           </div>
           <div className="flex justify-between mb-1">
             <span>Customer:</span>
-            <span>{order.customerName}</span>
+            <span>{customerName}</span>
           </div>
-          {order.customerPhone && (
+          {customerPhone && (
             <div className="flex justify-between mb-1">
               <span>Phone:</span>
-              <span>{order.customerPhone}</span>
+              <span>{customerPhone}</span>
+            </div>
+          )}
+          {deliveryAddress && (
+            <div className="flex justify-between mb-1">
+              <span>Address:</span>
+              <span>{deliveryAddress}</span>
             </div>
           )}
           
@@ -102,36 +142,47 @@ export const ThermalReceipt = React.forwardRef<HTMLDivElement, ThermalReceiptPro
           </div>
           
           <div className="flex flex-col gap-2 mb-2">
-            {order.items?.map((item: any) => (
-              <div key={item.id} className="flex flex-col">
-                <div className="flex justify-between">
-                  <span>{item.quantity}x {item.name}</span>
-                  <span>{formatUZS(item.price * item.quantity)}</span>
-                </div>
-                {item.specialInstructions && (
-                  <div className="pl-4 uppercase font-bold text-xs mt-1">
-                    *** {item.specialInstructions} ***
+            {order.items?.map((item: any, idx: number) => {
+              const itemId = item.id || item.menu_item_id || idx;
+              const itemSpecial = item.specialInstructions || item.special_instructions;
+              const hasPrice = typeof item.price === 'number';
+              return (
+                <div key={itemId} className="flex flex-col">
+                  <div className="flex justify-between">
+                    <span>{item.quantity}x {item.name}</span>
+                    <span>{hasPrice ? formatUZS(item.price * item.quantity) : ''}</span>
                   </div>
-                )}
-              </div>
-            ))}
+                  {itemSpecial && (
+                    <div className="pl-4 uppercase font-bold text-xs mt-1">
+                      *** {itemSpecial} ***
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           
+          {specialInstructions && (
+            <div className="text-xs italic mb-2">
+              Note: {specialInstructions}
+            </div>
+          )}
+
           <div className="my-2 text-center text-xs">
             ================================
           </div>
           
           <div className="flex justify-between mb-1">
             <span>Subtotal:</span>
-            <span>{formatUZS(order.subtotal || 0)}</span>
+            <span>{formatUZS(subtotal || 0)}</span>
           </div>
           <div className="flex justify-between mb-1">
             <span>Delivery:</span>
-            <span>{formatUZS(order.deliveryFee || 0)}</span>
+            <span>{formatUZS(deliveryFee || 0)}</span>
           </div>
           <div className="flex justify-between font-bold text-base mt-2">
             <span>TOTAL:</span>
-            <span>{formatUZS(order.total || 0)}</span>
+            <span>{formatUZS(total || 0)}</span>
           </div>
           
           <div className="mt-6 mb-2 text-center text-xs">
@@ -140,7 +191,7 @@ export const ThermalReceipt = React.forwardRef<HTMLDivElement, ThermalReceiptPro
           <div className="text-center mt-2">
             <div className="text-xs mb-1">PICKUP CODE</div>
             <div className="text-3xl font-bold tracking-widest">
-              {order.orderNumber?.slice(-4) || '0000'}
+              {orderNumber?.slice(-4) || '0000'}
             </div>
           </div>
           <div className="text-center text-xs mt-6 mb-2 pb-8">

@@ -12,7 +12,6 @@ import {
   Key,
   Shield,
   Loader2,
-  Trash2,
   UserCheck,
   CreditCard,
   Check,
@@ -177,29 +176,32 @@ export default function SettingsPage() {
       return;
     }
 
+    if (!restaurantId) {
+      toast.error("No restaurant associated with this account");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      if (restaurantId) {
-        const supabase = createClient();
-        const { error } = await supabase
-          .from("restaurants")
-          .update({
-            name: name.trim(),
-            cuisine_type: cuisine.trim(),
-            phone: phone.trim() || null,
-            address: address.trim() || null,
-            default_auto_accept: autoAccept,
-            auto_reject_minutes: autoRejectMinutes,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", restaurantId);
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("restaurants")
+        .update({
+          name: name.trim(),
+          cuisine_type: cuisine.trim(),
+          phone: phone.trim() || null,
+          address: address.trim() || null,
+          default_auto_accept: autoAccept,
+          auto_reject_minutes: autoRejectMinutes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", restaurantId);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        // Update local user context
-        if (user) {
-          setUser({ ...user, restaurant_name: name.trim() });
-        }
+      // Update local user context
+      if (user) {
+        setUser({ ...user, restaurant_name: name.trim() });
       }
       toast.success("Settings saved successfully!");
     } catch (err: any) {
@@ -230,7 +232,6 @@ export default function SettingsPage() {
           name: newBranchName.trim(),
           address: newBranchAddress.trim() || null,
           phone: newBranchPhone.trim() || null,
-          location: "0101000020E610000041F163CC5D4F51407593180456A64440",
           timezone: "Asia/Tashkent",
           is_active: true,
           accepts_delivery: true,
@@ -256,37 +257,8 @@ export default function SettingsPage() {
   // Add Staff Member
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStaffName.trim() || !restaurantId) return;
-
-    // Check subscription staff limit
-    const staffCheck = checkTierLimit(currentTier, "staff", staffList.length);
-    if (!staffCheck.allowed) {
-      toast.error(staffCheck.message);
-      return;
-    }
-
-    try {
-      const supabase = createClient();
-
-      const { error } = await supabase.from("staff").insert({
-        user_id: null,
-        restaurant_id: restaurantId,
-        display_name: newStaffName.trim(),
-        role: newStaffRole,
-        is_active: true,
-        invited_at: new Date().toISOString(),
-      });
-
-      if (error) throw error;
-
-      toast.success(`Staff member "${newStaffName}" invited as ${newStaffRole}!`);
-      setNewStaffName("");
-      setNewStaffRole("kitchen");
-      setIsInviteStaffOpen(false);
-      loadSettings();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to add staff member");
-    }
+    toast.info("Staff invitation requires email invitation through Supabase Auth. Feature coming soon.");
+    setIsInviteStaffOpen(false);
   };
 
   // Switch or Upgrade Subscription Plan
@@ -548,8 +520,10 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => setIsInviteStaffOpen(true)}
-                  className="flex items-center gap-2 bg-[#f98b25] hover:bg-[#e07b1d] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  type="button"
+                  disabled
+                  title="Email invitation coming soon"
+                  className="flex items-center gap-2 bg-slate-800 text-slate-500 px-4 py-2 rounded-lg text-sm font-medium cursor-not-allowed opacity-60"
                 >
                   <Plus className="w-4 h-4" />
                   Invite Staff
@@ -768,41 +742,56 @@ export default function SettingsPage() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-slate-300 flex items-center justify-between">
                       Noor 3PL API Key (Tashkent)
-                      <span className="text-xs text-[#34d399] flex items-center gap-1">
-                        <Shield className="w-3 h-3" /> Ready / Simulator
+                      <span className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded flex items-center gap-1 font-mono">
+                        <Shield className="w-3 h-3" /> Coming Soon (Not Connected)
                       </span>
                     </Label>
                     <div className="flex gap-2">
                       <Input
                         type="password"
                         defaultValue="noor_live_test_7a8f9d0"
-                        className="flex-1 bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-white focus:border-[#f98b25]"
+                        disabled
+                        className="flex-1 bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-slate-500 focus:border-[#f98b25] cursor-not-allowed"
                       />
                       <button
                         type="button"
-                        onClick={() => toast.success("API key stored securely")}
-                        className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        disabled
+                        title="Noor 3PL integration coming soon"
+                        className="bg-slate-800 text-slate-500 px-4 py-2 rounded-lg text-sm font-medium cursor-not-allowed flex items-center gap-2 opacity-60"
                       >
                         Update
+                        <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                          Coming Soon
+                        </span>
                       </button>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-300">Webhook Secret</Label>
+                    <Label className="text-sm font-medium text-slate-300 flex items-center justify-between">
+                      <span>Webhook Secret</span>
+                      <span className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded font-mono">
+                        Coming Soon
+                      </span>
+                    </Label>
                     <div className="flex gap-2">
                       <Input
                         type="text"
                         readOnly
+                        disabled
                         value="whsec_8f92j3f928j3f9823jf9823j"
-                        className="flex-1 bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-slate-400 font-mono text-xs"
+                        className="flex-1 bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-slate-500 font-mono text-xs cursor-not-allowed"
                       />
                       <button
                         type="button"
-                        onClick={() => toast.success("Secret regenerated")}
-                        className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                        disabled
+                        title="Webhook secret generation coming soon"
+                        className="bg-slate-800 text-slate-500 px-4 py-2 rounded-lg text-sm font-medium cursor-not-allowed flex items-center gap-2 opacity-60"
                       >
                         <Key className="w-4 h-4" /> Generate
+                        <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                          Coming Soon
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -829,10 +818,14 @@ export default function SettingsPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => toast.info("Restaurant archived")}
-                      className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+                      disabled
+                      title="Restaurant archiving coming soon"
+                      className="bg-slate-800 text-slate-500 px-4 py-2 rounded-lg text-xs font-medium cursor-not-allowed flex items-center gap-1.5 opacity-60"
                     >
                       Archive
+                      <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                        Coming Soon
+                      </span>
                     </button>
                   </div>
                 </div>

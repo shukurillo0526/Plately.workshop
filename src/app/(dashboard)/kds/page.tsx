@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
-import { KDSOrder } from '@/stores/kds-store';
+import { KDSOrder, useKDSStore } from '@/stores/kds-store';
 import { useRealtimeOrders } from '@/lib/supabase/hooks/use-realtime-orders';
 import {
   fetchActiveKDSOrders,
@@ -71,6 +71,7 @@ const createSampleOrders = (): KDSOrder[] => {
 
 export default function KDSPage() {
   const { user } = useAuthStore();
+  const connectionStatus = useKDSStore((state) => state.connectionStatus);
   const [orders, setOrders] = useState<KDSOrder[]>(createSampleOrders);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -95,9 +96,7 @@ export default function KDSPage() {
     setIsLoading(true);
     try {
       const realOrders = await fetchActiveKDSOrders(restaurantId);
-      if (realOrders.length > 0) {
-        setOrders(realOrders);
-      }
+      setOrders(realOrders);
     } catch (err) {
       console.error('[KDS] Failed to load orders:', err);
     } finally {
@@ -207,6 +206,32 @@ export default function KDSPage() {
     { id: 'dispatched' as const, title: 'DISPATCHED', color: 'bg-purple-500' },
   ];
 
+  const statusConfig = {
+    connected: {
+      label: 'Live KDS',
+      badge: 'bg-emerald-500/10 border-emerald-500/20',
+      dot: 'bg-emerald-500 animate-pulse',
+      text: 'text-emerald-400',
+    },
+    reconnecting: {
+      label: 'Reconnecting',
+      badge: 'bg-yellow-500/10 border-yellow-500/20',
+      dot: 'bg-yellow-500 animate-pulse',
+      text: 'text-yellow-400',
+    },
+    disconnected: {
+      label: 'Disconnected',
+      badge: 'bg-red-500/10 border-red-500/20',
+      dot: 'bg-red-500',
+      text: 'text-red-400',
+    },
+  }[connectionStatus] ?? {
+    label: 'Disconnected',
+    badge: 'bg-red-500/10 border-red-500/20',
+    dot: 'bg-red-500',
+    text: 'text-red-400',
+  };
+
   return (
     <div className={cn("flex flex-col h-screen bg-[#0D1117] text-white overflow-hidden", isFullscreen && "fixed inset-0 z-50")}>
       {/* KDS Header Toolbar */}
@@ -218,9 +243,9 @@ export default function KDSPage() {
           <h1 className="text-xl font-bold tracking-tight font-[family-name:var(--font-display)]">
             Kitchen Display
           </h1>
-          <div className="ml-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-medium text-emerald-400">Live KDS</span>
+          <div className={cn("ml-4 flex items-center gap-2 px-3 py-1.5 rounded-full border", statusConfig.badge)}>
+            <div className={cn("w-2 h-2 rounded-full", statusConfig.dot)} />
+            <span className={cn("text-xs font-medium", statusConfig.text)}>{statusConfig.label}</span>
           </div>
         </div>
 
