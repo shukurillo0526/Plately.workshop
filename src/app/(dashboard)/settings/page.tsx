@@ -18,6 +18,8 @@ import {
   Sparkles,
   Globe,
   ExternalLink,
+  Copy,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -81,6 +83,16 @@ export default function SettingsPage() {
   const [staffList, setStaffList] = useState<StaffRow[]>([]);
   const [currentTier, setCurrentTier] = useState<SubscriptionTier>("free");
 
+  // Domain & Storefront State
+  const [subdomain, setSubdomain] = useState("");
+  const [customDomain, setCustomDomain] = useState("");
+  const [isDomainVerified, setIsDomainVerified] = useState(false);
+  const [domainVerifiedAt, setDomainVerifiedAt] = useState<string | null>(null);
+  const [verificationToken, setVerificationToken] = useState("");
+  const [isCheckingDns, setIsCheckingDns] = useState(false);
+  const [isSavingSubdomain, setIsSavingSubdomain] = useState(false);
+  const [dnsError, setDnsError] = useState<string | null>(null);
+
   // Modals
   const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");
@@ -121,6 +133,11 @@ export default function SettingsPage() {
         if (rest.subscription_tier) {
           setCurrentTier(rest.subscription_tier as SubscriptionTier);
         }
+        setSubdomain(rest.subdomain || "");
+        setCustomDomain(rest.custom_domain || "");
+        setIsDomainVerified(Boolean(rest.custom_domain && rest.domain_verified_at));
+        setDomainVerifiedAt(rest.domain_verified_at || null);
+        setVerificationToken(rest.domain_verification_token || "");
       }
 
       // 2. Fetch Branches
@@ -280,8 +297,112 @@ export default function SettingsPage() {
     }
   };
 
+  // Save Subdomain
+  const handleSaveSubdomain = async () => {
+    if (!restaurantId) return;
+    setIsSavingSubdomain(true);
+    try {
+      const res = await fetch("/api/domains/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId,
+          subdomain: subdomain.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update subdomain");
+      }
+      toast.success(
+        subdomain.trim()
+          ? `Subdomain claimed! Storefront live at ${subdomain.trim()}.plately.app`
+          : "Subdomain cleared"
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save subdomain");
+    } finally {
+      setIsSavingSubdomain(false);
+    }
+  };
+
+  // Verify Custom Domain
+  const handleVerifyCustomDomain = async () => {
+    if (!restaurantId) return;
+    if (!customDomain.trim()) {
+      toast.error("Please enter a custom domain (e.g. order.myrestaurant.com)");
+      return;
+    }
+
+    setIsCheckingDns(true);
+    setDnsError(null);
+    try {
+      const res = await fetch("/api/domains/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId,
+          customDomain: customDomain.trim(),
+          action: "verify_dns",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "DNS verification request failed");
+      }
+
+      if (data.verified) {
+        setIsDomainVerified(true);
+        setDomainVerifiedAt(data.verifiedAt || new Date().toISOString());
+        setDnsError(null);
+        toast.success(data.message || "Domain verified successfully! Storefront is live.");
+      } else {
+        setIsDomainVerified(false);
+        setDnsError(data.error || "DNS records not yet detected.");
+        toast.error("DNS verification pending. Please verify your CNAME or TXT records.");
+      }
+    } catch (err: any) {
+      setDnsError(err.message || "Verification failed");
+      toast.error(err.message || "DNS verification failed");
+    } finally {
+      setIsCheckingDns(false);
+    }
+  };
+
+  // Remove Custom Domain
+  const handleRemoveCustomDomain = async () => {
+    if (!restaurantId) return;
+    try {
+      const res = await fetch("/api/domains/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId,
+          customDomain: null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to remove custom domain");
+      }
+      setCustomDomain("");
+      setIsDomainVerified(false);
+      setDomainVerifiedAt(null);
+      setDnsError(null);
+      toast.info("Custom domain disconnected");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to remove custom domain");
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard!`);
+  };
+
   const tabs = [
     { id: "general", label: "General & Info", icon: Store },
+    { id: "domains", label: "Domains & Storefront", icon: Globe },
     { id: "branches", label: "Branches", icon: MapPin },
     { id: "staff", label: "Staff & RBAC", icon: Users },
     { id: "billing", label: "Plan & Billing", icon: CreditCard },
@@ -436,6 +557,290 @@ export default function SettingsPage() {
                     </>
                   )}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* DOMAINS & STOREFRONT TAB */}
+          {activeTab === "domains" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* Overview Header */}
+              <div className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] rounded-xl p-6 shadow-xl">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-orange-500/10 text-[#f98b25]">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-white font-[family-name:var(--font-display)]">
+                      Domains & Storefront Routing
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Host your AI-generated public storefront on a free Plately branded subdomain or connect your own external custom domain.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Live URLs Summary */}
+                <div className="mt-4 p-4 rounded-lg bg-[#0D1117] border border-[rgba(255,255,255,0.06)] space-y-3">
+                  <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Storefront Endpoints</div>
+                  
+                  {/* Direct Internal Path */}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Default URL:</span>
+                    <a
+                      href={`/store/${slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[#f98b25] hover:underline flex items-center gap-1"
+                    >
+                      /store/{slug || "your-slug"}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
+                  {/* Subdomain URL */}
+                  {subdomain && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Branded Subdomain:</span>
+                      <a
+                        href={`https://${subdomain}.plately.app`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-emerald-400 hover:underline flex items-center gap-1"
+                      >
+                        https://{subdomain}.plately.app
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Custom Domain URL */}
+                  {customDomain && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Custom Domain:</span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                            isDomainVerified
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                              : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                          }`}
+                        >
+                          {isDomainVerified ? "Verified" : "Pending DNS"}
+                        </span>
+                        <a
+                          href={`https://${customDomain}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-white hover:underline flex items-center gap-1"
+                        >
+                          https://{customDomain}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Subdomain Configuration */}
+              <div className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] rounded-xl p-6 shadow-xl space-y-4">
+                <h3 className="text-lg font-semibold text-white font-[family-name:var(--font-display)] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#f98b25]" />
+                  Branded Platform Subdomain
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Claim your free branded subdomain on Plately (e.g. <span className="font-mono text-slate-300">tashkent-grill.plately.app</span>).
+                </p>
+
+                <div className="flex items-center gap-2 max-w-lg">
+                  <div className="relative flex-1">
+                    <Input
+                      type="text"
+                      placeholder="restaurant-name"
+                      value={subdomain}
+                      onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-white font-mono text-sm pr-28 focus:border-[#f98b25]"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-500 pointer-events-none">
+                      .plately.app
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveSubdomain}
+                    disabled={isSavingSubdomain}
+                    className="flex items-center gap-1.5 bg-[#f98b25] hover:bg-[#e07b1d] text-white px-4 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-60"
+                  >
+                    {isSavingSubdomain ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        Save Subdomain
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* External Custom Domain Configuration */}
+              <div className="bg-[#161b22] border border-[rgba(255,255,255,0.06)] rounded-xl p-6 shadow-xl space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white font-[family-name:var(--font-display)] flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-emerald-400" />
+                      External Custom Domain
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Connect your existing domain or subdomain (e.g. <span className="font-mono text-slate-300">order.mybrand.uz</span>).
+                    </p>
+                  </div>
+                  {customDomain && (
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                        isDomainVerified
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                          : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isDomainVerified ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
+                      {isDomainVerified ? "Verified & Live" : "Pending DNS Confirmation"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <Input
+                      type="text"
+                      placeholder="order.restaurant.com"
+                      value={customDomain}
+                      onChange={(e) => setCustomDomain(e.target.value.toLowerCase().trim())}
+                      className="bg-[#0D1117] border-[rgba(255,255,255,0.08)] text-white font-mono text-sm flex-1 focus:border-[#f98b25]"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleVerifyCustomDomain}
+                        disabled={isCheckingDns || !customDomain.trim()}
+                        className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                      >
+                        {isCheckingDns ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Checking DNS...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Verify DNS Records
+                          </>
+                        )}
+                      </button>
+
+                      {customDomain && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveCustomDomain}
+                          className="px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          Disconnect
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* DNS Error Callout */}
+                  {dnsError && (
+                    <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-red-200">DNS Verification Incomplete</div>
+                        <div className="mt-0.5 text-red-300/80">{dnsError}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Verification Success Callout */}
+                  {isDomainVerified && domainVerifiedAt && (
+                    <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span>Domain verified on {new Date(domainVerifiedAt).toLocaleString()}</span>
+                      </div>
+                      <a
+                        href={`https://${customDomain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-400 hover:underline flex items-center gap-1 font-medium"
+                      >
+                        Test Live Routing <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* DNS Instructions Panel */}
+                  <div className="p-4 rounded-lg bg-[#0D1117] border border-[rgba(255,255,255,0.06)] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-white">DNS Configuration Instructions</span>
+                      <span className="text-[11px] text-slate-400">Configure at your DNS provider (Cloudflare, GoDaddy, Namecheap)</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead>
+                          <tr className="border-b border-white/5 text-slate-400">
+                            <th className="pb-2 font-medium">Type</th>
+                            <th className="pb-2 font-medium">Host / Name</th>
+                            <th className="pb-2 font-medium">Target / Value</th>
+                            <th className="pb-2 font-medium text-right">Copy</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 font-mono text-[11px]">
+                          {/* CNAME Record */}
+                          <tr>
+                            <td className="py-2.5 text-emerald-400 font-bold">CNAME</td>
+                            <td className="py-2.5 text-slate-300">{customDomain ? customDomain.split(".")[0] : "order"}</td>
+                            <td className="py-2.5 text-slate-300">cname.plately.app</td>
+                            <td className="py-2.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard("cname.plately.app", "CNAME target")}
+                                className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white"
+                                title="Copy target"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* TXT Verification Record */}
+                          <tr>
+                            <td className="py-2.5 text-[#f98b25] font-bold">TXT</td>
+                            <td className="py-2.5 text-slate-300">_plately-challenge{customDomain ? `.${customDomain.split(".")[0]}` : ""}</td>
+                            <td className="py-2.5 text-slate-300 max-w-[200px] truncate" title={verificationToken || "plately-verify-..."}>
+                              {verificationToken || "Generating token..."}
+                            </td>
+                            <td className="py-2.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(verificationToken, "Verification token")}
+                                className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white"
+                                title="Copy token"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
