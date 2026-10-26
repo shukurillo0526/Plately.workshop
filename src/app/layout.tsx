@@ -7,6 +7,13 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Plately Workshop',
   description: 'Restaurant management portal for Plately — manage menus, orders, deliveries, and analytics.',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({
