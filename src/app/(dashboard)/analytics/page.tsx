@@ -113,31 +113,54 @@ export default function AnalyticsDashboard() {
         const rev = valid.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
         const aov = valid.length > 0 ? Math.round(rev / valid.length) : 0;
 
-        // 1. Group daily revenue trend
+        // 1. Group revenue trend by time filter
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        const dayBuckets: Record<string, number> = {};
-        
-        // Initialize buckets for the last 7 periods or days
-        const numBuckets = timeFilter === "7d" ? 7 : timeFilter === "30d" ? 4 : 12;
         const trendList: Array<{ label: string; value: number }> = [];
 
         if (timeFilter === "7d") {
+          const keys: string[] = [];
           for (let i = 6; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
             const key = d.toISOString().split("T")[0];
-            dayBuckets[key] = 0;
+            keys.push(key);
             trendList.push({ label: dayNames[d.getDay()], value: 0 });
           }
           valid.forEach((o) => {
             const dateKey = (o.created_at || "").split("T")[0];
-            const idx = Object.keys(dayBuckets).indexOf(dateKey);
+            const idx = keys.indexOf(dateKey);
             if (idx !== -1) {
               trendList[idx].value += Number(o.total) || 0;
             }
           });
+        } else if (timeFilter === "30d") {
+          // 4 rolling 7-day buckets
+          for (let w = 3; w >= 0; w--) {
+            trendList.push({ label: `Wk ${4 - w}`, value: 0 });
+          }
+          const nowMs = Date.now();
+          valid.forEach((o) => {
+            const orderMs = new Date(o.created_at || "").getTime();
+            const daysAgo = Math.floor((nowMs - orderMs) / (1000 * 60 * 60 * 24));
+            const weekIdx = 3 - Math.min(3, Math.max(0, Math.floor(daysAgo / 7)));
+            if (weekIdx >= 0 && weekIdx < 4) {
+              trendList[weekIdx].value += Number(o.total) || 0;
+            }
+          });
         } else {
-          trendList.push(...benchmark.revenueTrend);
+          // 3 rolling 30-day buckets for 90d
+          for (let m = 2; m >= 0; m--) {
+            trendList.push({ label: `Month ${3 - m}`, value: 0 });
+          }
+          const nowMs = Date.now();
+          valid.forEach((o) => {
+            const orderMs = new Date(o.created_at || "").getTime();
+            const daysAgo = Math.floor((nowMs - orderMs) / (1000 * 60 * 60 * 24));
+            const monthIdx = 2 - Math.min(2, Math.max(0, Math.floor(daysAgo / 30)));
+            if (monthIdx >= 0 && monthIdx < 3) {
+              trendList[monthIdx].value += Number(o.total) || 0;
+            }
+          });
         }
 
         // 2. Aggregate top selling dishes from order items
@@ -218,17 +241,36 @@ export default function AnalyticsDashboard() {
   }, [realStats, benchmark]);
 
   const handleExport = () => {
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      `Metric,Value\nRevenue,${currentData.revenue}\nOrders,${currentData.orders}\nAOV,${currentData.aov}\nPeriod,${timeFilter}\n`;
-    const encodedUri = encodeURI(csvContent);
+    let csv = `Plately Workshop Analytics Report (${timeFilter})\n\n`;
+    csv += `Metric,Value\n`;
+    csv += `Total Revenue,${currentData.revenue}\n`;
+    csv += `Total Orders,${currentData.orders}\n`;
+    csv += `Average Order Value,${currentData.aov}\n`;
+    csv += `Data Source,${realStats?.isReal ? 'Live Production Database' : 'Demo Benchmark'}\n\n`;
+
+    csv += `Revenue Trend Breakdown\n`;
+    csv += `Period,Revenue (UZS)\n`;
+    currentData.revenueTrend.forEach((t: { label: string; value: number }) => {
+      csv += `${t.label},${t.value}\n`;
+    });
+    csv += `\n`;
+
+    csv += `Top Performing Dishes\n`;
+    csv += `Dish,Orders Count,Total Revenue (UZS)\n`;
+    currentData.topDishes.forEach((d: { name: string; count: number; revenue: number }) => {
+      csv += `"${d.name}",${d.count},${d.revenue}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `plately_analytics_${timeFilter}.csv`);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `plately_analytics_${timeFilter}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Analytics CSV exported successfully");
+    URL.revokeObjectURL(url);
+    toast.success("Comprehensive Analytics CSV exported successfully");
   };
 
   const maxTrendValue = useMemo(() => {

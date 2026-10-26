@@ -100,6 +100,15 @@ export default function KDSPage() {
     } catch (_) {}
   };
 
+  // Request desktop notification permission on mount for kitchen alerts
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+  }, []);
+
   // Clock tick
   useEffect(() => {
     const timer = setInterval(() => {

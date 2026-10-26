@@ -93,12 +93,42 @@ export async function flushQueue(
 
   const database = getDB();
   const actions = await database.actions.orderBy('created_at').toArray();
-  let processed = 0;
+  if (actions.length === 0) return 0;
+
+  // Deduplicate redundant actions for the same order ID: keep the most recent status transition
+  const latestByOrder = new Map<string, QueuedAction>();
+  const otherActions: QueuedAction[] = [];
+  const redundantActionIds: number[] = [];
 
   for (const action of actions) {
+    const orderId = (action.payload?.orderId || action.payload?.id) as string | undefined;
+    if (orderId && action.action === 'update_order_status') {
+      const existing = latestByOrder.get(orderId);
+      if (existing && existing.id) {
+        redundantActionIds.push(existing.id);
+      }
+      latestByOrder.set(orderId, action);
+    } else {
+      otherActions.push(action);
+    }
+  }
+
+  // Clean up collapsed redundant actions from IndexedDB immediately
+  if (redundantActionIds.length > 0) {
+    for (const id of redundantActionIds) {
+      await database.actions.delete(id);
+    }
+  }
+
+  const effectiveActions = [...otherActions, ...latestByOrder.values()];
+  let processed = 0;
+
+  for (const action of effectiveActions) {
     try {
       await executor(action);
-      await database.actions.delete(action.id!);
+      if (action.id) {
+        await database.actions.delete(action.id);
+      }
       processed++;
     } catch (error) {
       console.error(`[Offline] Failed to flush action:`, action, error);
@@ -106,10 +136,12 @@ export async function flushQueue(
       if (action.retries >= 5) {
         // Give up after 5 retries — remove from queue
         console.error(`[Offline] Dropping action after 5 retries:`, action);
-        await database.actions.delete(action.id!);
-      } else {
+        if (action.id) {
+          await database.actions.delete(action.id);
+        }
+      } else if (action.id) {
         // Increment retry counter
-        await database.actions.update(action.id!, {
+        await database.actions.update(action.id, {
           retries: action.retries + 1,
         });
       }
@@ -117,7 +149,7 @@ export async function flushQueue(
   }
 
   if (processed > 0) {
-    console.log(`[Offline] Flushed ${processed}/${actions.length} actions`);
+    console.log(`[Offline] Flushed ${processed}/${effectiveActions.length} actions (${redundantActionIds.length} redundant collapsed)`);
   }
 
   return processed;

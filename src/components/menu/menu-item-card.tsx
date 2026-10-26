@@ -1,7 +1,7 @@
 "use client";
 
 import { ImageIcon, Pencil, Trash2, Star } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getOptimizedImageUrl } from "@/lib/utils";
 import { StockToggle } from "./stock-toggle";
 import { CategoryBadge } from "./category-badge";
 
@@ -38,7 +38,13 @@ export function MenuItemCard({
       <div className="relative h-[160px] w-full bg-[#1c2333] flex items-center justify-center shrink-0">
         {item.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+          <img
+            src={getOptimizedImageUrl(item.image_url, { width: 400, quality: 80 })}
+            alt={item.name}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         ) : (
           <ImageIcon className="h-10 w-10 text-gray-600" />
         )}

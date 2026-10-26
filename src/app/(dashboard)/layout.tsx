@@ -30,20 +30,49 @@ import { useAuthStore, ROUTE_PERMISSIONS } from '@/stores/auth-store';
 import { useLanguageStore } from '@/stores/language-store';
 import { createClient } from '@/lib/supabase/client';
 
-const navItems = [
-  { key: 'nav.dashboard', name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { key: 'nav.website', name: 'Website Builder', href: '/website', icon: Globe },
-  { key: 'nav.agents', name: 'AI Agents', href: '/agents', icon: Bot },
-  { key: 'nav.voice', name: 'Voice Calls', href: '/voice', icon: PhoneCall },
-  { key: 'nav.kds', name: 'KDS', href: '/kds', icon: ChefHat },
-  { key: 'nav.menu', name: 'Menu', href: '/menu', icon: UtensilsCrossed },
-  { key: 'nav.orders', name: 'Orders', href: '/orders', icon: ShoppingBag },
-  { key: 'nav.reservations', name: 'Reservations', href: '/reservations', icon: Calendar },
-  { key: 'nav.dispatch', name: 'Dispatch', href: '/dispatch', icon: Truck },
-  { key: 'nav.customers', name: 'Customers', href: '/customers', icon: Users },
-  { key: 'nav.marketing', name: 'Marketing', href: '/marketing', icon: Megaphone },
-  { key: 'nav.analytics', name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { key: 'nav.settings', name: 'Settings', href: '/settings', icon: Settings },
+interface NavSection {
+  titleKey?: string;
+  items: Array<{
+    key: string;
+    name: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string; strokeWidth?: number | string }>;
+  }>;
+}
+
+const navSections: NavSection[] = [
+  {
+    items: [
+      { key: 'nav.dashboard', name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    ],
+  },
+  {
+    titleKey: 'nav.section.kitchen',
+    items: [
+      { key: 'nav.kds', name: 'KDS', href: '/kds', icon: ChefHat },
+      { key: 'nav.orders', name: 'Orders', href: '/orders', icon: ShoppingBag },
+      { key: 'nav.menu', name: 'Menu', href: '/menu', icon: UtensilsCrossed },
+      { key: 'nav.reservations', name: 'Reservations', href: '/reservations', icon: Calendar },
+      { key: 'nav.dispatch', name: 'Dispatch', href: '/dispatch', icon: Truck },
+    ],
+  },
+  {
+    titleKey: 'nav.section.omnichannel',
+    items: [
+      { key: 'nav.website', name: 'Website Builder', href: '/website', icon: Globe },
+      { key: 'nav.agents', name: 'AI Agents', href: '/agents', icon: Bot },
+      { key: 'nav.voice', name: 'Voice Calls', href: '/voice', icon: PhoneCall },
+    ],
+  },
+  {
+    titleKey: 'nav.section.growth',
+    items: [
+      { key: 'nav.customers', name: 'Customers', href: '/customers', icon: Users },
+      { key: 'nav.marketing', name: 'Marketing', href: '/marketing', icon: Megaphone },
+      { key: 'nav.analytics', name: 'Analytics', href: '/analytics', icon: BarChart3 },
+      { key: 'nav.settings', name: 'Settings', href: '/settings', icon: Settings },
+    ],
+  },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -71,16 +100,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login');
   };
 
-  // Filter nav items based on roles after client mount to prevent SSR hydration mismatch
-  const filteredNavItems = mounted
-    ? navItems.filter((item) => {
-        if (item.href === '/') return true;
-        const requiredRole = ROUTE_PERMISSIONS[item.href];
-        if (!requiredRole) return true;
-        return hasRole(requiredRole);
-      })
-    : navItems;
-
   const restaurantName = mounted ? (user?.restaurant_name ?? 'My Restaurant') : 'My Restaurant';
   
   let initials = 'PL';
@@ -100,7 +119,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Mobile Sidebar Overlay Backdrop */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-black/50 xl:hidden backdrop-blur-sm"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden backdrop-blur-sm"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -108,7 +127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside className={cn(
         "w-[260px] shrink-0 flex flex-col border-r border-[rgba(255,255,255,0.06)] bg-[rgba(13,17,23,0.8)] backdrop-blur-xl",
-        "fixed inset-y-0 left-0 z-50 transition-transform duration-300 xl:relative xl:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:relative lg:translate-x-0",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
@@ -122,7 +141,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           {/* Close button on mobile */}
           <button 
-            className="ml-auto text-gray-400 hover:text-white xl:hidden p-1"
+            className="ml-auto text-gray-400 hover:text-white lg:hidden p-1"
             onClick={() => setIsSidebarOpen(false)}
           >
             <X className="w-5 h-5" />
@@ -130,30 +149,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {filteredNavItems.map((item) => {
-            const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-            const Icon = item.icon;
+        <nav className="flex-1 px-3 py-3 space-y-3.5 overflow-y-auto">
+          {navSections.map((section, sIdx) => {
+            const visibleItems = section.items.filter((item) => {
+              if (item.href === '/') return true;
+              const requiredRole = ROUTE_PERMISSIONS[item.href];
+              if (!requiredRole) return true;
+              return mounted ? hasRole(requiredRole) : true;
+            });
+
+            if (visibleItems.length === 0) return null;
+
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setIsSidebarOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-                  isActive
-                    ? 'bg-gradient-to-r from-[rgba(249,139,37,0.15)] to-[rgba(249,139,37,0.05)] text-[#f98b25] shadow-[inset_0_0_0_1px_rgba(249,139,37,0.15)]'
-                    : 'text-gray-400 hover:text-white hover:bg-[rgba(255,255,255,0.04)]'
+              <div key={sIdx} className="space-y-0.5">
+                {section.titleKey && (
+                  <p className="px-3 pt-1 pb-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    {mounted ? t(section.titleKey, section.titleKey) : section.titleKey}
+                  </p>
                 )}
-              >
-                <Icon className={cn('w-[18px] h-[18px]', isActive && 'text-[#f98b25]')} strokeWidth={isActive ? 2 : 1.5} />
-                <span suppressHydrationWarning>{mounted ? t(item.key, item.name) : item.name}</span>
-                {item.name === 'KDS' && (
-                  <span suppressHydrationWarning className="ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded bg-[rgba(249,139,37,0.2)] text-[#f98b25] tabular-nums">
-                    {mounted ? t('nav.live', 'LIVE') : 'LIVE'}
-                  </span>
-                )}
-              </Link>
+                {visibleItems.map((item) => {
+                  const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={() => setIsSidebarOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                        isActive
+                          ? 'bg-gradient-to-r from-[rgba(249,139,37,0.15)] to-[rgba(249,139,37,0.05)] text-[#f98b25] shadow-[inset_0_0_0_1px_rgba(249,139,37,0.15)]'
+                          : 'text-gray-400 hover:text-white hover:bg-[rgba(255,255,255,0.04)]'
+                      )}
+                    >
+                      <Icon className={cn('w-[18px] h-[18px]', isActive && 'text-[#f98b25]')} strokeWidth={isActive ? 2 : 1.5} />
+                      <span suppressHydrationWarning>{mounted ? t(item.key, item.name) : item.name}</span>
+                      {item.name === 'KDS' && (
+                        <span suppressHydrationWarning className="ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded bg-[rgba(249,139,37,0.2)] text-[#f98b25] tabular-nums">
+                          {mounted ? t('nav.live', 'LIVE') : 'LIVE'}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
@@ -182,7 +221,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="h-16 shrink-0 flex items-center justify-between px-8 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(13,17,23,0.6)] backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <button
-              className="xl:hidden p-1 -ml-4 text-gray-400 hover:text-white"
+              className="lg:hidden p-1 -ml-4 text-gray-400 hover:text-white"
               onClick={() => setIsSidebarOpen(true)}
             >
               <Menu className="w-5 h-5" />

@@ -58,6 +58,23 @@ export function useRealtimeOrders(options: RealtimeOrdersOptions = {}) {
             playNewOrderChime();
           }
 
+          // Trigger native browser notification if tab is backgrounded
+          if (
+            typeof window !== 'undefined' &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            try {
+              new Notification(`New Plately Order: #${payload.new.order_number || payload.new.id}`, {
+                body: `Type: ${payload.new.type || 'Standard'} • Total: ${(Number(payload.new.total) || 0).toLocaleString()} UZS`,
+                icon: '/logo.png',
+                tag: String(payload.new.id),
+              });
+            } catch (err) {
+              console.warn('[Realtime] Browser notification failed:', err);
+            }
+          }
+
           toast.success(`New Order Received! #${payload.new.order_number || payload.new.id}`, {
             description: `Type: ${payload.new.type} • Total: ${payload.new.total} UZS`,
             duration: 5000,
