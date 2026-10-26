@@ -80,12 +80,19 @@ export const WORKSHOP_HOSTS: ReadonlySet<string> = new Set<string>([
   'workshop.plately.app',
   'plately.app',
   'plately.uz',
+  'workshop.theplately.com',
+  'theplately.com',
 ]);
 
 /**
  * Platform base domains supporting branded subdomains.
  */
-export const BASE_DOMAINS: readonly string[] = ['plately.app', 'plately.uz', 'localhost'];
+export const BASE_DOMAINS: readonly string[] = [
+  'plately.app',
+  'plately.uz',
+  'theplately.com',
+  'localhost',
+];
 
 /**
  * Extracts and normalizes hostname from a raw host header or URL string.
@@ -162,8 +169,8 @@ export function classifyHost(
     };
   }
 
-  // 1. Explicit Workshop core hosts
-  if (WORKSHOP_HOSTS.has(hostname)) {
+  // 1. Explicit Workshop core hosts and Vercel preview/production deployments
+  if (WORKSHOP_HOSTS.has(hostname) || hostname.endsWith('.vercel.app')) {
     return {
       type: 'workshop',
       hostname,
