@@ -113,10 +113,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}>
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-[rgba(255,255,255,0.06)]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#f98b25] to-[#e07a00] flex items-center justify-center">
-              <span className="text-white font-bold text-sm">P</span>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img src="/logo.png" alt="Plately Workshop" className="w-8 h-8 rounded-lg shadow-sm object-contain" />
             <div>
               <h1 className="text-lg font-bold font-[family-name:var(--font-display)] text-white leading-none">Plately</h1>
               <p className="text-[10px] text-[#f98b25] uppercase tracking-[0.2em] font-medium leading-none mt-0.5">Workshop</p>
