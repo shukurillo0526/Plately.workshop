@@ -7,13 +7,23 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const restaurantId = searchParams.get("restaurantId");
-
-    if (!restaurantId) {
-      return NextResponse.json({ error: "restaurantId is required" }, { status: 400 });
-    }
+    let restaurantId = searchParams.get("restaurantId");
+    const slug = searchParams.get("slug");
 
     const admin = createAdminClient();
+
+    if (!restaurantId && slug) {
+      const { data: rest } = await admin
+        .from("restaurants")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (rest) restaurantId = rest.id;
+    }
+
+    if (!restaurantId) {
+      return NextResponse.json({ error: "restaurantId or slug is required" }, { status: 400 });
+    }
     const { data, error } = await admin
       .from("restaurant_website_configs")
       .select("*")
