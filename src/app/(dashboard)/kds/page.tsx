@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 import { KDSOrder, useKDSStore } from '@/stores/kds-store';
 import { useRealtimeOrders } from '@/lib/supabase/hooks/use-realtime-orders';
+import { playSuccessBeep } from '@/lib/audio/sound-effects';
 import {
   fetchActiveKDSOrders,
   normalizeKDSOrder,
@@ -120,6 +121,9 @@ export default function KDSPage() {
     }
 
     // Optimistic local state update
+    if (isSoundEnabled) {
+      playSuccessBeep();
+    }
     setOrders((prev) =>
       prev
         .map((order) => (order.id === orderId ? { ...order, status: nextStatus } : order))
