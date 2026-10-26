@@ -195,6 +195,71 @@ export default function KDSPage() {
     }
   };
 
+  // Keyboard Bumper Shortcuts (Gloves-friendly kitchen terminal operation)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is actively in a form field
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        // Priority 1: Oldest confirmed order -> start preparing
+        const confirmedOrders = orders.filter((o) => o.status === 'confirmed');
+        if (confirmedOrders.length > 0) {
+          const oldest = [...confirmedOrders].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          )[0];
+          handleAction(oldest.id, 'accept');
+          return;
+        }
+
+        // Priority 2: Oldest preparing order -> bump to ready
+        const preparingOrders = orders.filter((o) => o.status === 'preparing');
+        if (preparingOrders.length > 0) {
+          const oldest = [...preparingOrders].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          )[0];
+          handleAction(oldest.id, 'ready');
+          return;
+        }
+
+        // Priority 3: Oldest ready order -> bump to dispatched/completed
+        const readyOrders = orders.filter((o) => o.status === 'ready');
+        if (readyOrders.length > 0) {
+          const oldest = [...readyOrders].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          )[0];
+          handleAction(oldest.id, oldest.order_type === 'delivery' ? 'dispatch' : 'complete');
+          return;
+        }
+      }
+
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        setIsSoundEnabled((prev) => !prev);
+      }
+
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        loadOrders();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [orders, isSoundEnabled, loadOrders]);
+
   const formattedTime = currentTime.toLocaleTimeString('en-US', {
     timeZone: 'Asia/Tashkent',
     hour12: false,
@@ -250,6 +315,15 @@ export default function KDSPage() {
           <div className={cn("ml-4 flex items-center gap-2 px-3 py-1.5 rounded-full border", statusConfig.badge)}>
             <div className={cn("w-2 h-2 rounded-full", statusConfig.dot)} />
             <span className={cn("text-xs font-medium", statusConfig.text)}>{statusConfig.label}</span>
+          </div>
+
+          {/* Quick Keyboard Bumper Helpers */}
+          <div className="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded bg-[#0d1117] border border-[rgba(255,255,255,0.08)] text-[11px] text-gray-400 font-mono">
+            <span className="text-[#f98b25] font-semibold">SPACE</span> Bump
+            <span className="text-gray-600">|</span>
+            <span className="text-[#f98b25] font-semibold">F</span> Full
+            <span className="text-gray-600">|</span>
+            <span className="text-[#f98b25] font-semibold">M</span> Audio
           </div>
         </div>
 
