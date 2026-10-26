@@ -73,7 +73,7 @@ const createSampleOrders = (): KDSOrder[] => {
 export default function KDSPage() {
   const { user } = useAuthStore();
   const connectionStatus = useKDSStore((state) => state.connectionStatus);
-  const [orders, setOrders] = useState<KDSOrder[]>(createSampleOrders);
+  const [orders, setOrders] = useState<KDSOrder[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
@@ -82,6 +82,23 @@ export default function KDSPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const restaurantId = user?.restaurant_id;
+
+  // Restore sound preference from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('plately_kds_sound');
+      if (saved !== null) {
+        setIsSoundEnabled(saved === 'true');
+      }
+    } catch (_) {}
+  }, []);
+
+  const handleToggleSound = (enabled: boolean) => {
+    setIsSoundEnabled(enabled);
+    try {
+      localStorage.setItem('plately_kds_sound', String(enabled));
+    } catch (_) {}
+  };
 
   // Clock tick
   useEffect(() => {
@@ -93,7 +110,10 @@ export default function KDSPage() {
 
   // Fetch initial active orders
   const loadOrders = useCallback(async () => {
-    if (!restaurantId) return;
+    if (!restaurantId) {
+      setOrders(createSampleOrders());
+      return;
+    }
     setIsLoading(true);
     try {
       const realOrders = await fetchActiveKDSOrders(restaurantId);
@@ -247,7 +267,7 @@ export default function KDSPage() {
 
       if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
-        setIsSoundEnabled((prev) => !prev);
+        handleToggleSound(!isSoundEnabled);
       }
 
       if (e.key === 'r' || e.key === 'R') {
@@ -356,7 +376,7 @@ export default function KDSPage() {
           <div className="h-6 w-px bg-[rgba(255,255,255,0.1)]" />
 
           <button
-            onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+            onClick={() => handleToggleSound(!isSoundEnabled)}
             className="text-gray-400 hover:text-white transition-colors"
             title={isSoundEnabled ? 'Sound alerts enabled' : 'Sound alerts muted'}
           >
@@ -372,6 +392,15 @@ export default function KDSPage() {
           </button>
         </div>
       </header>
+
+      {/* Demo Simulation Notice if no restaurant linked */}
+      {!restaurantId && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2 text-xs text-amber-300 flex items-center justify-between shrink-0">
+          <span>
+            <strong>Demo Mode:</strong> Showing simulated kitchen tickets. Log in with a restaurant staff account to manage live orders.
+          </span>
+        </div>
+      )}
 
       {/* Kanban Board */}
       <main className="flex-1 overflow-hidden p-6">

@@ -86,12 +86,36 @@ export async function updateOrderStatusWithOfflineSync(
 
   try {
     const supabase = createClient();
+
+    // Build update payload with the appropriate timestamp column
+    const timestampField: Partial<Record<OrderStatus, string>> = {
+      preparing: 'preparing_at',
+      ready: 'ready_at',
+      dispatched: 'dispatched_at',
+      completed: 'completed_at',
+      cancelled: 'cancelled_at',
+      picked_up: 'completed_at',
+    };
+
+    const now = new Date().toISOString();
+    const update: Record<string, unknown> = {
+      status: nextStatus,
+      updated_at: now,
+    };
+
+    const tsField = timestampField[nextStatus];
+    if (tsField) {
+      update[tsField] = now;
+    }
+
+    // If accepting (confirmed → preparing), also record accepted_at
+    if (nextStatus === 'preparing') {
+      update['accepted_at'] = now;
+    }
+
     const { error } = await supabase
       .from('orders')
-      .update({
-        status: nextStatus,
-        updated_at: new Date().toISOString(),
-      })
+      .update(update)
       .eq('id', orderId);
 
     if (error) {

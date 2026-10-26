@@ -45,6 +45,8 @@ interface DashboardStats {
   ordersToday: number;
   avgPrepTime: string;
   activeOrdersCount: number;
+  revenueChange: string;
+  ordersChange: string;
 }
 
 interface RecentOrder {
@@ -63,6 +65,8 @@ export default function DashboardPage() {
     ordersToday: 0,
     avgPrepTime: '—',
     activeOrdersCount: 0,
+    revenueChange: '',
+    ordersChange: '',
   });
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [menuCount, setMenuCount] = useState<number>(0);
@@ -94,33 +98,77 @@ export default function DashboardPage() {
       setIsLoading(true);
       const supabase = createClient();
 
-      // 1. Fetch menu count for checklist
-      const { count: dishCount } = await supabase
-        .from('menu_items')
-        .select('*', { count: 'exact', head: true })
-        .eq('restaurant_id', restaurantId);
-
-      setMenuCount(dishCount || 0);
-
-      // 2. Fetch today's orders
+      // Fetch in parallel: menu count, today's orders, yesterday's orders (for trend calculation), and reservations
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
 
-      const { data: todayOrders, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .gte('created_at', startOfDay.toISOString())
-        .order('created_at', { ascending: false });
+      const startOfYesterday = new Date(startOfDay);
+      startOfYesterday.setDate(startOfYesterday.getDate() - 1);
 
-      if (!ordersError && todayOrders) {
-        const valid = todayOrders.filter((o) => o.status !== 'cancelled' && o.status !== 'rejected');
-        const rev = valid.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      const [dishRes, todayOrdersRes, yesterdayOrdersRes, resDataRes] = await Promise.all([
+        supabase
+          .from('menu_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('restaurant_id', restaurantId),
+        supabase
+          .from('orders')
+          .select('*')
+          .eq('restaurant_id', restaurantId)
+          .gte('created_at', startOfDay.toISOString())
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('orders')
+          .select('total, status')
+          .eq('restaurant_id', restaurantId)
+          .gte('created_at', startOfYesterday.toISOString())
+          .lt('created_at', startOfDay.toISOString()),
+        supabase
+          .from('reservations')
+          .select('customer_name, reservation_time, party_size, table_number, status')
+          .eq('restaurant_id', restaurantId)
+          .gte('reservation_time', startOfDay.toISOString())
+          .lte('reservation_time', endOfToday.toISOString())
+          .in('status', ['pending', 'confirmed'])
+          .order('reservation_time', { ascending: true })
+          .limit(5),
+      ]);
+
+      setMenuCount(dishRes.count || 0);
+
+      const todayOrders = todayOrdersRes.data || [];
+      const yesterdayOrders = yesterdayOrdersRes.data || [];
+
+      if (!todayOrdersRes.error && todayOrders) {
+        const validToday = todayOrders.filter((o) => o.status !== 'cancelled' && o.status !== 'rejected');
+        const rev = validToday.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
         const active = todayOrders.filter((o) => ['confirmed', 'preparing', 'ready', 'dispatched'].includes(o.status)).length;
+
+        // Calculate comparison with yesterday
+        const validYesterday = yesterdayOrders.filter((o) => o.status !== 'cancelled' && o.status !== 'rejected');
+        const revYesterday = validYesterday.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+
+        let revChange = '';
+        if (revYesterday > 0) {
+          const pct = Math.round(((rev - revYesterday) / revYesterday) * 100);
+          revChange = `${pct >= 0 ? '+' : ''}${pct}%`;
+        } else if (rev > 0) {
+          revChange = '+100%';
+        }
+
+        let ordChange = '';
+        if (yesterdayOrders.length > 0) {
+          const pct = Math.round(((todayOrders.length - yesterdayOrders.length) / yesterdayOrders.length) * 100);
+          ordChange = `${pct >= 0 ? '+' : ''}${pct}%`;
+        } else if (todayOrders.length > 0) {
+          ordChange = '+100%';
+        }
 
         // Calculate real avg prep time from completed orders
         let avgPrepStr = '—';
-        const completedWithTimes = valid.filter((o) => o.status === 'completed' && o.preparing_at && o.ready_at);
+        const completedWithTimes = validToday.filter((o) => o.status === 'completed' && o.preparing_at && o.ready_at);
         if (completedWithTimes.length > 0) {
           const totalPrepMs = completedWithTimes.reduce((acc, o) => {
             return acc + (new Date(o.ready_at).getTime() - new Date(o.preparing_at).getTime());
@@ -136,6 +184,8 @@ export default function DashboardPage() {
           ordersToday: todayOrders.length,
           avgPrepTime: avgPrepStr,
           activeOrdersCount: active,
+          revenueChange: revChange,
+          ordersChange: ordChange,
         });
 
         // Compute real KDS counts
@@ -164,22 +214,7 @@ export default function DashboardPage() {
         );
       }
 
-      // 3. Fetch today's reservations
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
-
-      const { data: resData } = await supabase
-        .from('reservations')
-        .select('customer_name, reservation_time, party_size, table_number, status')
-        .eq('restaurant_id', restaurantId)
-        .gte('reservation_time', startOfToday.toISOString())
-        .lte('reservation_time', endOfToday.toISOString())
-        .in('status', ['pending', 'confirmed'])
-        .order('reservation_time', { ascending: true })
-        .limit(5);
-
+      const resData = resDataRes.data;
       if (resData && resData.length > 0) {
         setTodayReservations(
           resData.map((r) => ({
@@ -258,9 +293,9 @@ export default function DashboardPage() {
       title: 'Total Revenue',
       value: formatUZS(stats.revenueToday),
       unit: '',
-      change: '+12%',
-      trend: 'up' as const,
-      subtitle: 'today',
+      change: stats.revenueChange,
+      trend: stats.revenueChange.startsWith('-') ? ('down' as const) : ('up' as const),
+      subtitle: stats.revenueChange ? 'vs yesterday' : 'today',
       icon: DollarSign,
       gradient: 'from-amber-500/20 to-orange-500/10',
       iconColor: 'text-amber-400',
@@ -270,9 +305,9 @@ export default function DashboardPage() {
       title: 'Orders Today',
       value: String(stats.ordersToday),
       unit: '',
-      change: '+5%',
-      trend: 'up' as const,
-      subtitle: 'orders placed',
+      change: stats.ordersChange,
+      trend: stats.ordersChange.startsWith('-') ? ('down' as const) : ('up' as const),
+      subtitle: stats.ordersChange ? 'vs yesterday' : 'orders placed',
       icon: ShoppingBag,
       gradient: 'from-blue-500/20 to-indigo-500/10',
       iconColor: 'text-blue-400',

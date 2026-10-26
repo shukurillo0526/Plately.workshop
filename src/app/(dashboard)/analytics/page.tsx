@@ -280,6 +280,15 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
+      {/* Benchmark Demo Notice */}
+      {(!restaurantId || !realStats) && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 text-xs text-amber-300 flex items-center justify-between">
+          <span>
+            <strong>Benchmark Overview:</strong> Displaying Tashkent culinary market benchmarks. Live metrics will automatically populate once your restaurant processes its initial orders.
+          </span>
+        </div>
+      )}
+
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard

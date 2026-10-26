@@ -28,10 +28,68 @@ export interface MarketingCampaignDraft {
 }
 
 /**
- * Predicts hourly restaurant demand based on operational historical patterns.
+ * Predicts hourly restaurant demand based on operational historical patterns
+ * or empirical order data when available.
  */
-export function predictHourlyDemand(dayOfWeek: number = new Date().getDay()): DemandPrediction[] {
-  // Peak factors: Fridays (5) and Saturdays (6) see higher evening rushes in Tashkent
+export function predictHourlyDemand(
+  dayOfWeek: number = new Date().getDay(),
+  historicalOrders?: Array<{ created_at?: string; status?: string }>
+): DemandPrediction[] {
+  // If historical order data is provided with sufficient sample size, calculate empirical distribution
+  if (historicalOrders && historicalOrders.length >= 10) {
+    const validOrders = historicalOrders.filter(
+      (o) => o.created_at && o.status !== 'cancelled' && o.status !== 'rejected'
+    );
+
+    if (validOrders.length >= 8) {
+      const hourlyTotals: Record<number, number> = {};
+      for (let h = 10; h <= 22; h++) hourlyTotals[h] = 0;
+
+      // Group by target day of week if enough sample size, else aggregate
+      const sameDayOrders = validOrders.filter(
+        (o) => new Date(o.created_at!).getDay() === dayOfWeek
+      );
+      const dataset = sameDayOrders.length >= 5 ? sameDayOrders : validOrders;
+
+      dataset.forEach((o) => {
+        const hour = new Date(o.created_at!).getHours();
+        if (hour >= 10 && hour <= 22) {
+          hourlyTotals[hour] = (hourlyTotals[hour] || 0) + 1;
+        }
+      });
+
+      const uniqueDays = new Set(
+        dataset.map((o) => (o.created_at || '').split('T')[0])
+      ).size || 1;
+
+      return Object.keys(hourlyTotals)
+        .map(Number)
+        .map((h) => {
+          const avg = Math.round((hourlyTotals[h] || 0) / uniqueDays);
+          let trend: 'peak' | 'normal' | 'slow' = 'normal';
+          let staffRec = 'Standard kitchen staffing';
+
+          if (avg >= 20) {
+            trend = 'peak';
+            staffRec = 'Full line ready: prep 2 cooks, 1 expeditor, active courier staging';
+          } else if (avg <= 5) {
+            trend = 'slow';
+            staffRec = 'Prep-heavy window: restock mise en place & chop inventory';
+          }
+
+          return {
+            hour: h,
+            label: `${h}:00 - ${h + 1}:00`,
+            predictedOrders: Math.max(1, avg),
+            confidence: Math.min(0.96, 0.75 + (dataset.length / 100) * 0.2),
+            trend,
+            staffRecommendation: staffRec,
+          };
+        });
+    }
+  }
+
+  // Baseline Tashkent culinary market model (Friday/Saturday evening rushes)
   const isWeekend = dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0;
   const multiplier = isWeekend ? 1.4 : 1.0;
 

@@ -44,6 +44,8 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [sortField, setSortField] = useState<SortField>("time");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   const restaurantId = user?.restaurant_id;
 
@@ -146,6 +148,22 @@ export default function OrdersPage() {
       });
   }, [orders, searchQuery, statusFilter, sortField, sortDirection]);
 
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (status: OrderStatus | "all") => {
+    setStatusFilter(status);
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredOrders.slice(start, start + PAGE_SIZE);
+  }, [filteredOrders, currentPage, PAGE_SIZE]);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -222,6 +240,14 @@ export default function OrdersPage() {
       </div>
 
       {/* Filter Toolbar */}
+      {!restaurantId && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 text-xs text-amber-300 flex items-center justify-between">
+          <span>
+            <strong>Demo Mode:</strong> Showing simulated restaurant orders. Log in with a staff account to see live client orders.
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-[#161b22] p-4 rounded-xl border border-[rgba(255,255,255,0.06)]">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
@@ -230,7 +256,7 @@ export default function OrdersPage() {
             type="text"
             placeholder="Search by order ID, customer, dishes..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full bg-[#0D1117] border border-[rgba(255,255,255,0.08)] rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#f98b25] transition-colors"
           />
         </div>
@@ -241,7 +267,7 @@ export default function OrdersPage() {
             (status) => (
               <button
                 key={status}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => handleStatusFilterChange(status)}
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all border shrink-0",
                   statusFilter === status
@@ -289,8 +315,8 @@ export default function OrdersPage() {
                     Loading orders...
                   </td>
                 </tr>
-              ) : filteredOrders.length > 0 ? (
-                filteredOrders.map((order, idx) => (
+              ) : paginatedOrders.length > 0 ? (
+                paginatedOrders.map((order, idx) => (
                   <tr
                     key={String(order.id)}
                     className={cn(
@@ -333,6 +359,38 @@ export default function OrdersPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredOrders.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[rgba(255,255,255,0.06)] bg-[#0D1117]/30 text-xs text-gray-400">
+            <span>
+              Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredOrders.length)} to{' '}
+              {Math.min(currentPage * PAGE_SIZE, filteredOrders.length)} of {filteredOrders.length} orders
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#161b22] text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+
+              <span className="px-2 font-mono text-gray-300">
+                {currentPage} / {totalPages}
+              </span>
+
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#161b22] text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

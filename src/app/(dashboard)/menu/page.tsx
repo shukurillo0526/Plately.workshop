@@ -330,6 +330,15 @@ export default function MenuPage() {
         </button>
       </div>
 
+      {/* Demo notice if no restaurant attached */}
+      {!restaurantId && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 text-xs text-amber-300 flex items-center justify-between">
+          <span>
+            <strong>Demo Mode:</strong> Displaying sample menu items. Link your restaurant account in settings to publish your live dishes.
+          </span>
+        </div>
+      )}
+
       {/* Toolbar: Categories & Search */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#161b22] p-4 rounded-xl border border-[rgba(255,255,255,0.06)]">
         {/* Category Tabs */}
