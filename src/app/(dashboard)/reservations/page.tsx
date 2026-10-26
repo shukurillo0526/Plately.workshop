@@ -182,6 +182,72 @@ export default function ReservationsPage() {
     loadReservations();
   }, [loadReservations]);
 
+  // Real-time Supabase subscription for incoming table reservations
+  useEffect(() => {
+    if (!restaurantId) return;
+    const supabase = createClient();
+    const filter = `restaurant_id=eq.${restaurantId}`;
+
+    const channel = supabase
+      .channel(`workshop-reservations-${restaurantId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "reservations",
+          filter,
+        },
+        (payload) => {
+          const r = payload.new as any;
+          toast.info(`New Table Reservation! ${r.customer_name || "Guest"} (${r.party_size || 2} guests)`, {
+            description: `Time: ${new Date(r.reservation_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+            duration: 6000,
+          });
+          const newItem: ReservationItem = {
+            id: r.id,
+            customerName: r.customer_name,
+            customerPhone: r.customer_phone,
+            partySize: r.party_size,
+            reservationTime: r.reservation_time,
+            tableNumber: r.table_number,
+            status: (r.status as ReservationStatus) || "pending",
+            specialRequests: r.special_requests,
+            createdAt: r.created_at,
+          };
+          setReservations((prev) => [newItem, ...prev.filter((item) => item.id !== newItem.id)]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "reservations",
+          filter,
+        },
+        (payload) => {
+          const r = payload.new as any;
+          setReservations((prev) =>
+            prev.map((item) =>
+              item.id === r.id
+                ? {
+                    ...item,
+                    status: (r.status as ReservationStatus) || item.status,
+                    tableNumber: r.table_number !== undefined ? r.table_number : item.tableNumber,
+                  }
+                : item
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurantId]);
+
   const handleUpdateStatus = async (id: string, newStatus: ReservationStatus) => {
     setReservations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
