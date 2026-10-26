@@ -480,7 +480,7 @@ export default function PublicStorefrontPage({
     }
   };
 
-  const handleConfirmReservation = (e: React.FormEvent) => {
+  const handleConfirmReservation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resCustomerName.trim()) {
       toast.error("Please enter your name");
@@ -492,9 +492,37 @@ export default function PublicStorefrontPage({
     }
 
     const resId = `RES-${Math.floor(1000 + Math.random() * 9000)}`;
-    setConfirmedReservationId(resId);
-    setIsReserveModalOpen(false);
-    toast.success(`🎉 Reservation confirmed! Booking ID: #${resId}`);
+
+    try {
+      if (restaurant.id && restaurant.id !== "demo-rest") {
+        const supabase = createClient();
+        const reservationDateTime = `${resDate}T${resTime}:00`;
+        const { error } = await supabase.from("reservations").insert({
+          restaurant_id: restaurant.id,
+          customer_name: resCustomerName.trim(),
+          customer_phone: resCustomerPhone.trim(),
+          party_size: Number(resPartySize) || 2,
+          reservation_time: new Date(reservationDateTime).toISOString(),
+          table_number: selectedTable ? selectedTable.name : null,
+          status: "pending",
+          special_requests: resSpecialNotes.trim()
+            ? `[Storefront Booking] Table: ${selectedTable?.name || "General"} (${selectedTable?.zone || "Dining"}). Notes: ${resSpecialNotes.trim()}`
+            : `[Storefront Booking] Table: ${selectedTable?.name || "General"} (${selectedTable?.zone || "Dining"})`,
+        });
+
+        if (error) {
+          console.error("[Storefront] Reservation insert error:", error);
+          toast.error("Could not save reservation: " + error.message);
+          return;
+        }
+      }
+
+      setConfirmedReservationId(resId);
+      setIsReserveModalOpen(false);
+      toast.success(`🎉 Reservation submitted! Booking ID: #${resId}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to submit reservation");
+    }
   };
 
   // ═══════════════════════════════════════════════════════════════════════
