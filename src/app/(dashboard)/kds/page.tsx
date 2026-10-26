@@ -259,7 +259,7 @@ export default function KDSPage() {
             <RefreshCw size={18} className={isLoading ? 'animate-spin text-[#f98b25]' : ''} />
           </button>
 
-          <div className="font-mono text-xl font-semibold text-gray-200 tracking-wider">
+          <div suppressHydrationWarning className="font-mono text-xl font-semibold text-gray-200 tracking-wider">
             {formattedTime}
           </div>
 

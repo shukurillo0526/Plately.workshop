@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -50,6 +50,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // If on onboarding, render standalone without dashboard sidebar/header
   if (pathname.startsWith('/onboarding')) {
@@ -66,18 +71,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login');
   };
 
-  // Filter nav items based on roles
-  const filteredNavItems = navItems.filter((item) => {
-    if (item.href === '/') return true;
-    const requiredRole = ROUTE_PERMISSIONS[item.href];
-    if (!requiredRole) return true;
-    return hasRole(requiredRole);
-  });
+  // Filter nav items based on roles after client mount to prevent SSR hydration mismatch
+  const filteredNavItems = mounted
+    ? navItems.filter((item) => {
+        if (item.href === '/') return true;
+        const requiredRole = ROUTE_PERMISSIONS[item.href];
+        if (!requiredRole) return true;
+        return hasRole(requiredRole);
+      })
+    : navItems;
 
-  const restaurantName = user?.restaurant_name ?? 'My Restaurant';
+  const restaurantName = mounted ? (user?.restaurant_name ?? 'My Restaurant') : 'My Restaurant';
   
   let initials = 'PL';
-  if (user?.display_name && user.display_name.trim().length > 0) {
+  if (mounted && user?.display_name && user.display_name.trim().length > 0) {
     const parts = user.display_name.trim().split(/\s+/);
     if (parts.length >= 2) {
       initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -142,10 +149,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               >
                 <Icon className={cn('w-[18px] h-[18px]', isActive && 'text-[#f98b25]')} strokeWidth={isActive ? 2 : 1.5} />
-                <span>{t(item.key, item.name)}</span>
+                <span suppressHydrationWarning>{mounted ? t(item.key, item.name) : item.name}</span>
                 {item.name === 'KDS' && (
-                  <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded bg-[rgba(249,139,37,0.2)] text-[#f98b25] tabular-nums">
-                    {t('nav.live', 'LIVE')}
+                  <span suppressHydrationWarning className="ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded bg-[rgba(249,139,37,0.2)] text-[#f98b25] tabular-nums">
+                    {mounted ? t('nav.live', 'LIVE') : 'LIVE'}
                   </span>
                 )}
               </Link>
@@ -160,12 +167,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="flex w-full items-center gap-3 px-2 py-2 -mx-2 mb-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-[rgba(255,255,255,0.04)] transition-all duration-200"
           >
             <LogOut className="w-[18px] h-[18px]" strokeWidth={1.5} />
-            <span>{t('nav.sign_out', 'Sign Out')}</span>
+            <span suppressHydrationWarning>{mounted ? t('nav.sign_out', 'Sign Out') : 'Sign Out'}</span>
           </button>
           
           <div className="flex items-center gap-2 text-xs">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-gray-500">{t('nav.connected', 'Connected')}</span>
+            <span suppressHydrationWarning className="text-gray-500">{mounted ? t('nav.connected', 'Connected') : 'Connected'}</span>
           </div>
         </div>
       </aside>
@@ -182,7 +189,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h2 className="text-base font-semibold font-[family-name:var(--font-display)] text-white">{restaurantName}</h2>
+            <h2 suppressHydrationWarning className="text-base font-semibold font-[family-name:var(--font-display)] text-white">{restaurantName}</h2>
             <BranchSwitcher />
           </div>
           
@@ -191,7 +198,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <NotificationCenter />
             
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#f98b25] to-[#e07a00] flex items-center justify-center text-sm font-bold text-white cursor-pointer select-none">
+            <div suppressHydrationWarning className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#f98b25] to-[#e07a00] flex items-center justify-center text-sm font-bold text-white cursor-pointer select-none">
               {initials}
             </div>
           </div>
