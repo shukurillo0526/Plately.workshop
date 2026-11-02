@@ -23,6 +23,7 @@ import {
   PhoneCall,
 } from 'lucide-react';
 import { OfflineBanner } from '@/components/common/offline-banner';
+import { SandboxBanner } from '@/components/common/sandbox-banner';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
 import { BranchSwitcher } from '@/components/common/branch-switcher';
 import { NotificationCenter } from '@/components/common/notification-center';
@@ -222,6 +223,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden w-full min-w-0">
         <OfflineBanner />
+        <SandboxBanner />
         {/* Topbar */}
         <header className="h-16 shrink-0 flex items-center justify-between px-8 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(13,17,23,0.6)] backdrop-blur-xl">
           <div className="flex items-center gap-3">
