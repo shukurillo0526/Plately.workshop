@@ -94,10 +94,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { t } = useLanguageStore();
 
   const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' });
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error(e);
+    }
     setUser(null);
-    router.push('/login');
+    window.location.href = '/login?switch=true';
   };
 
   const restaurantName = mounted ? (user?.restaurant_name ?? 'My Restaurant') : 'My Restaurant';

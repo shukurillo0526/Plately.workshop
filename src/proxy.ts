@@ -12,6 +12,19 @@ import { resolveCustomDomain } from '@/lib/domains/resolver';
 
 const PUBLIC_AUTH_PATHS = ['/login', '/signup'];
 
+function redirectWithCookies(
+  target: string | URL,
+  req: NextRequest,
+  sessionResponse: NextResponse
+): NextResponse {
+  const url = typeof target === 'string' ? new URL(target, req.url) : target;
+  const redirectRes = NextResponse.redirect(url);
+  sessionResponse.cookies.getAll().forEach((cookie) => {
+    redirectRes.cookies.set(cookie.name, cookie.value, cookie);
+  });
+  return redirectRes;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -46,8 +59,8 @@ export async function proxy(request: NextRequest) {
     // Preserve staff authentication routes if accessed from tenant domain
     if (PUBLIC_AUTH_PATHS.some(path => pathname.startsWith(path))) {
       const { response, user } = await updateSession(request);
-      if (user) {
-        return NextResponse.redirect(new URL('/', request.url));
+      if (user && !request.nextUrl.searchParams.has('switch')) {
+        return redirectWithCookies('/', request, response);
       }
       return response;
     }
@@ -103,9 +116,14 @@ export async function proxy(request: NextRequest) {
 
   // Allow public auth paths
   if (PUBLIC_AUTH_PATHS.some(path => pathname.startsWith(path))) {
-    // If already authenticated, redirect away from auth pages
-    if (user) {
-      return NextResponse.redirect(new URL('/', request.url));
+    // If the user explicitly requested account switching, allow rendering
+    if (request.nextUrl.searchParams.has('switch') || request.nextUrl.searchParams.has('logout')) {
+      return response;
+    }
+    // If already authenticated and has a restaurant, redirect to dashboard
+    const existingRestId = (user?.app_metadata?.restaurant_id || user?.user_metadata?.restaurant_id) as string | undefined;
+    if (user && existingRestId) {
+      return redirectWithCookies('/', request, response);
     }
     return response;
   }
@@ -113,8 +131,10 @@ export async function proxy(request: NextRequest) {
   // Protected routes: redirect to login if not authenticated
   if (!user) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+    if (pathname !== '/') {
+      loginUrl.searchParams.set('redirect', pathname);
+    }
+    return redirectWithCookies(loginUrl, request, response);
   }
 
   // Check if user has an associated restaurant (claims or database fallback)
@@ -140,12 +160,12 @@ export async function proxy(request: NextRequest) {
 
   // If user already has a restaurant, do not trap them on onboarding
   if (restaurantId && pathname.startsWith('/onboarding')) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return redirectWithCookies('/', request, response);
   }
 
   // If user has no restaurant, redirect to onboarding
   if (!restaurantId && !pathname.startsWith('/onboarding')) {
-    return NextResponse.redirect(new URL('/onboarding', request.url));
+    return redirectWithCookies('/onboarding', request, response);
   }
 
   return response;

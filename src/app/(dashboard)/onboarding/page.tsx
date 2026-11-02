@@ -124,8 +124,28 @@ export default function OnboardingPage() {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' });
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error(e);
+    }
+    window.location.href = '/login?switch=true';
+  };
+
   return (
-    <div className="min-h-screen bg-[#0D1117] flex flex-col items-center py-12 px-4 sm:px-6">
+    <div className="min-h-screen bg-[#0D1117] flex flex-col items-center py-12 px-4 sm:px-6 relative">
+      {/* Top utility bar */}
+      <div className="w-full max-w-2xl flex justify-end mb-2">
+        <button
+          onClick={handleSignOut}
+          className="text-xs text-gray-500 hover:text-gray-300 transition-colors py-1 px-2.5 rounded hover:bg-white/5"
+        >
+          Sign out / Switch account
+        </button>
+      </div>
       <div className="w-full max-w-2xl space-y-8">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-display font-bold text-white tracking-tight">Set up your Workshop</h1>

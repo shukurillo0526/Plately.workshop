@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
   try {
@@ -50,8 +51,17 @@ export async function POST(request: Request) {
 
     if (!rpcError && rpcData) {
       try {
-        await supabase.auth.updateUser({
-          data: {
+        const admin = createAdminClient();
+        await admin.auth.admin.updateUserById(user.id, {
+          app_metadata: {
+            restaurant_id: rpcData.restaurant_id,
+            restaurant_name: rpcData.name,
+            restaurant_slug: rpcData.slug,
+            role: 'owner',
+            staff_role: 'owner',
+            branch_id: rpcData.branch_id,
+          },
+          user_metadata: {
             restaurant_id: rpcData.restaurant_id,
             restaurant_name: rpcData.name,
             restaurant_slug: rpcData.slug,
@@ -60,7 +70,7 @@ export async function POST(request: Request) {
           },
         });
       } catch (metaErr) {
-        console.warn('[Onboarding] user_metadata update warning:', metaErr);
+        console.warn('[Onboarding] user metadata update warning:', metaErr);
       }
 
       return NextResponse.json({
@@ -145,8 +155,17 @@ export async function POST(request: Request) {
     }
 
     try {
-      await supabase.auth.updateUser({
-        data: {
+      const admin = createAdminClient();
+      await admin.auth.admin.updateUserById(user.id, {
+        app_metadata: {
+          restaurant_id: restaurant.id,
+          restaurant_name: restaurant.name,
+          restaurant_slug: restaurant.slug,
+          role: 'owner',
+          staff_role: 'owner',
+          branch_id: branchId,
+        },
+        user_metadata: {
           restaurant_id: restaurant.id,
           restaurant_name: restaurant.name,
           restaurant_slug: restaurant.slug,
@@ -155,7 +174,7 @@ export async function POST(request: Request) {
         },
       });
     } catch (metaErr) {
-      console.warn('[Onboarding] user_metadata fallback update warning:', metaErr);
+      console.warn('[Onboarding] user metadata fallback update warning:', metaErr);
     }
 
     return NextResponse.json({
